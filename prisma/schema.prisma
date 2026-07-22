@@ -1,0 +1,48 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("PRISMA_DATABASE_URL")
+  directUrl = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Product {
+  id           Int           @id @default(autoincrement())
+  category     String
+  name         String
+  price        Float
+  stock        Int           @default(0)
+  minStock     Int           @default(5)
+  transactions Transaction[]
+}
+
+model Transaction {
+  id            Int      @id @default(autoincrement())
+  type          String   // "VENTA" o "COMPRA"
+  paymentMethod String?  @default("EFECTIVO") // "EFECTIVO" o "TRANSFERENCIA"
+  quantity      Int
+  total         Float
+  date          DateTime @default(now())
+  productId     Int
+  product   Product  @relation(fields: [productId], references: [id])
+}
+
+model CashRegisterClose {
+  id             Int      @id @default(autoincrement())
+  date           DateTime @default(now())
+  expectedCash   Float
+  actualCash     Float
+  difference     Float
+  totalTransfers Float
+  salesCount     Int
+}
+
+model Expense {
+  id            Int      @id @default(autoincrement())
+  description   String
+  amount        Float
+  paymentMethod String   @default("EFECTIVO")
+  date          DateTime @default(now())
+}

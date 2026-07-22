@@ -1,0 +1,145 @@
+import { PrismaClient } from '@prisma/client'
+
+const prisma = new PrismaClient()
+
+const initialProducts = [
+  { category: 'Lácteos y Jugos', name: 'Yogurt Vaso', price: 2300 },
+  { category: 'Lácteos y Jugos', name: 'Bonyurt Cereal', price: 3500 },
+  { category: 'Lácteos y Jugos', name: 'Avena', price: 1600 },
+  { category: 'Lácteos y Jugos', name: 'Jugo California 1 Litro', price: 7200 },
+  { category: 'Lácteos y Jugos', name: 'Leche Pequeña', price: 1300 },
+  { category: 'Lácteos y Jugos', name: 'Leche Mediana', price: 2000 },
+  { category: 'Lácteos y Jugos', name: 'Leche Grande', price: 4000 },
+  { category: 'Lácteos y Jugos', name: 'Jugo Caja Fruttsi', price: 1600 },
+  { category: 'Arepas y Embutidos', name: 'Arepa Queso', price: 3600 },
+  { category: 'Arepas y Embutidos', name: 'Arepa Maíz', price: 3300 },
+  { category: 'Arepas y Embutidos', name: 'Salchichón Carne', price: 200 },
+  { category: 'Arepas y Embutidos', name: 'Salchichón Pollo', price: 300 },
+  { category: 'Aseo del Hogar', name: 'Jabón Detex 1L', price: 3900 },
+  { category: 'Aseo del Hogar', name: 'Jabón Supremo Barra', price: 2700 },
+  { category: 'Aseo del Hogar', name: 'Jabón Axion (Lozas)', price: 1600 },
+  { category: 'Aseo del Hogar', name: 'Jabón Dersa', price: 3100 },
+  { category: 'Aseo del Hogar', name: 'Fabuloso Piso', price: 2200 },
+  { category: 'Aseo del Hogar', name: 'Sanpic', price: 1900 },
+  { category: 'Aseo del Hogar', name: 'Dersa Barra', price: 3400 },
+  { category: 'Aseo del Hogar', name: 'Puro Barra', price: 1800 },
+  { category: 'Aseo del Hogar', name: 'Jabón Rey', price: 3200 },
+  { category: 'Aseo del Hogar', name: 'Aromatel Suavizante', price: 1800 },
+  { category: 'Aseo del Hogar', name: 'Suavitel', price: 2200 },
+  { category: 'Aseo del Hogar', name: 'Vanish Blanco', price: 2800 },
+  { category: 'Aseo del Hogar', name: 'Límpido Blanquita', price: 1600 },
+  { category: 'Aseo del Hogar', name: 'Esponja', price: 1000 },
+  { category: 'Aseo del Hogar', name: 'Jabón Polvo 3D 125g', price: 1400 },
+  { category: 'Aseo del Hogar', name: 'Jabón Polvo 3D 250g', price: 2800 },
+  { category: 'Despensa y Abarrotes', name: 'Chocolate Pastilla Corona', price: 1100 },
+  { category: 'Despensa y Abarrotes', name: 'Chocolate La Especial', price: 700 },
+  { category: 'Despensa y Abarrotes', name: 'Azúcar', price: 2200 },
+  { category: 'Despensa y Abarrotes', name: 'Panela', price: 1900 },
+  { category: 'Despensa y Abarrotes', name: 'Salsa Fruco', price: 1800 },
+  { category: 'Despensa y Abarrotes', name: 'Mayonesa Frugal', price: 600 },
+  { category: 'Despensa y Abarrotes', name: 'Salsa Frugal', price: 600 },
+  { category: 'Despensa y Abarrotes', name: 'Galleta Milo', price: 1600 },
+  { category: 'Despensa y Abarrotes', name: 'Milo (Pequeño)', price: 1000 },
+  { category: 'Despensa y Abarrotes', name: 'Ricostilla', price: 500 },
+  { category: 'Despensa y Abarrotes', name: 'Doña Gallina', price: 500 },
+  { category: 'Despensa y Abarrotes', name: 'Chocokrispis y Zucaritas', price: 1600 },
+  { category: 'Despensa y Abarrotes', name: 'Choco Listo', price: 900 },
+  { category: 'Despensa y Abarrotes', name: 'Colcafé', price: 1600 },
+  { category: 'Despensa y Abarrotes', name: 'El Rodeo', price: 3000 },
+  { category: 'Despensa y Abarrotes', name: 'Aceite 900ml', price: 6100 },
+  { category: 'Despensa y Abarrotes', name: 'Aceite 500ml', price: 3700 },
+  { category: 'Despensa y Abarrotes', name: 'Aceite 250ml', price: 2600 },
+  { category: 'Despensa y Abarrotes', name: 'Nescafé Dedo', price: 400 },
+  { category: 'Despensa y Abarrotes', name: '125gr Café Colonial', price: 6600 },
+  { category: 'Despensa y Abarrotes', name: 'Harina Arepa Arepa', price: 1700 },
+  { category: 'Despensa y Abarrotes', name: 'Gustosita x 24', price: 1000 },
+  { category: 'Despensa y Abarrotes', name: 'Margarina Sabrina', price: 2000 },
+  { category: 'Despensa y Abarrotes', name: 'Pasta Pioleos', price: 700 },
+  { category: 'Despensa y Abarrotes', name: 'Spaghetti Mari Paz', price: 700 },
+  { category: 'Despensa y Abarrotes', name: 'Conchas Macarrones', price: 700 },
+  { category: 'Despensa y Abarrotes', name: 'Sal Refisal', price: 1700 },
+  { category: 'Despensa y Abarrotes', name: 'Arroz Pinillar', price: 2300 },
+  { category: 'Dulces y Paquetes', name: 'Natuchips', price: 2500 },
+  { category: 'Dulces y Paquetes', name: 'De Todito', price: 3000 },
+  { category: 'Dulces y Paquetes', name: 'Super Surtido', price: 1200 },
+  { category: 'Dulces y Paquetes', name: 'Chupetas', price: 700 },
+  { category: 'Dulces y Paquetes', name: 'Dulce Bolita', price: 100 },
+  { category: 'Dulces y Paquetes', name: 'Quimbayas', price: 1000 },
+  { category: 'Dulces y Paquetes', name: 'Trident', price: 1500 },
+  { category: 'Dulces y Paquetes', name: 'Pin Pong', price: 500 },
+  { category: 'Dulces y Paquetes', name: 'Ducales', price: 3500 },
+  { category: 'Dulces y Paquetes', name: 'Saltín', price: 2500 },
+  { category: 'Dulces y Paquetes', name: 'Barrilete', price: 300 },
+  { category: 'Dulces y Paquetes', name: 'Doritos', price: 2500 },
+  { category: 'Dulces y Paquetes', name: 'Papas Margarita', price: 2500 },
+  { category: 'Dulces y Paquetes', name: 'Cheetos', price: 2300 },
+  { category: 'Dulces y Paquetes', name: 'Lokiño', price: 200 },
+  { category: 'Dulces y Paquetes', name: 'Supercoco', price: 200 },
+  { category: 'Dulces y Paquetes', name: 'Bianchi', price: 300 },
+  { category: 'Dulces y Paquetes', name: 'Tamarindo', price: 200 },
+  { category: 'Dulces y Paquetes', name: 'Dulce Café', price: 100 },
+  { category: 'Dulces y Paquetes', name: 'Galletas Club Social', price: 1000 },
+  { category: 'Dulces y Paquetes', name: 'Galletas Festival', price: 1500 },
+  { category: 'Pulpas de Fruta', name: 'Pulpa Maracuyá', price: 4200 },
+  { category: 'Pulpas de Fruta', name: 'Pulpa Mora', price: 2000 },
+  { category: 'Pulpas de Fruta', name: 'Pulpa Lulo', price: 2400 },
+  { category: 'Pulpas de Fruta', name: 'Pulpa Tomate', price: 2400 },
+  { category: 'Pulpas de Fruta', name: 'Pulpa Fresa', price: 2400 },
+  { category: 'Gaseosas e Hidratantes', name: 'Pony Pequeña', price: 2900 },
+  { category: 'Gaseosas e Hidratantes', name: 'Pony 1 Litro', price: 5500 },
+  { category: 'Gaseosas e Hidratantes', name: 'Electrolit', price: 9000 },
+  { category: 'Gaseosas e Hidratantes', name: 'Coca-Cola Pequeña', price: 3200 },
+  { category: 'Gaseosas e Hidratantes', name: 'Coca-Cola Pequeña Plástica', price: 2500 },
+  { category: 'Gaseosas e Hidratantes', name: 'Litrón Coca-Cola Vidrio', price: 4000 },
+  { category: 'Gaseosas e Hidratantes', name: 'Litrón Coca-Cola Plástico', price: 4500 },
+  { category: 'Gaseosas e Hidratantes', name: '1/4 Coca-Cola Plástica', price: 6700 },
+  { category: 'Gaseosas e Hidratantes', name: 'Postobón 350', price: 2500 },
+  { category: 'Gaseosas e Hidratantes', name: 'Litrón Postobón Vidrio', price: 3500 },
+  { category: 'Gaseosas e Hidratantes', name: '1 1/4 Postobón', price: 5000 },
+  { category: 'Gaseosas e Hidratantes', name: 'Gatorade', price: 4000 },
+  { category: 'Gaseosas e Hidratantes', name: 'Del Valle', price: 2500 },
+  { category: 'Gaseosas e Hidratantes', name: 'Del Valle 1 1/4', price: 4500 },
+  { category: 'Gaseosas e Hidratantes', name: 'Soda', price: 3000 },
+  { category: 'Gaseosas e Hidratantes', name: 'Agua Botella', price: 2000 },
+  { category: 'Gaseosas e Hidratantes', name: 'Agua con Gas', price: 2000 },
+  { category: 'Gaseosas e Hidratantes', name: 'Agua Brisa con Gas', price: 2000 },
+  { category: 'Aseo Personal', name: 'Prestobarba', price: 2700 },
+  { category: 'Aseo Personal', name: 'Rapigel (Unidad)', price: 600 },
+  { category: 'Aseo Personal', name: 'Nosotras Buenas Noches (Unidad)', price: 1000 },
+  { category: 'Aseo Personal', name: 'Shampoo Pantene', price: 1100 },
+  { category: 'Aseo Personal', name: 'Acondicionador', price: 1200 },
+  { category: 'Aseo Personal', name: 'Shampoo H&S', price: 1100 },
+  { category: 'Aseo Personal', name: 'Desodorante Rexona', price: 1100 },
+  { category: 'Aseo Personal', name: 'Speed Stick (Gel)', price: 1200 },
+  { category: 'Aseo Personal', name: 'Lady Speed Stick', price: 1400 },
+  { category: 'Aseo Personal', name: 'Nutribela', price: 1300 },
+  { category: 'Aseo Personal', name: 'Tratamiento', price: 1800 },
+  { category: 'Aseo Personal', name: 'P.H. Familiar', price: 1800 },
+  { category: 'Aseo Personal', name: 'P.H. Megarrollo', price: 2600 }
+]
+
+async function main() {
+  console.log('Comenzando la carga inicial del inventario...')
+  for (const p of initialProducts) {
+    const product = await prisma.product.create({
+      data: {
+        category: p.category,
+        name: p.name,
+        price: p.price,
+        stock: 50, // Iniciaremos con un stock ficticio de 50 para cada cosa
+        minStock: 10 // Alerta cuando baje de 10 unidades
+      }
+    })
+    console.log(`Creado producto: ${product.name}`)
+  }
+  console.log('¡Carga finalizada correctamente!')
+}
+
+main()
+  .catch((e) => {
+    console.error(e)
+    process.exit(1)
+  })
+  .finally(async () => {
+    await prisma.$disconnect()
+  })
