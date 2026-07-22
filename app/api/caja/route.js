@@ -3,6 +3,8 @@ import { sendTelegramMessage } from '../../../lib/telegram'
 
 const prisma = new PrismaClient()
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request) {
   try {
     const lastClose = await prisma.cashRegisterClose.findFirst({

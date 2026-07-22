@@ -21,7 +21,7 @@ export default function POS() {
   const [selectedCategory, setSelectedCategory] = useState('Todas');
 
   useEffect(() => {
-    fetch('/api/products')
+    fetch('/api/products?t=' + Date.now(), { cache: 'no-store' })
       .then(res => res.json())
       .then(data => {
         setProducts(data);
@@ -68,7 +68,7 @@ export default function POS() {
     if (res.ok) {
       alert('¡Venta registrada con éxito!');
       setCart([]);
-      const newData = await fetch('/api/products').then(r => r.json());
+      const newData = await fetch('/api/products?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json());
       setProducts(newData);
     } else {
       alert('Error al registrar la venta');
@@ -77,7 +77,7 @@ export default function POS() {
   };
 
   const openCierreCaja = async () => {
-    const res = await fetch('/api/caja');
+    const res = await fetch('/api/caja?t=' + Date.now(), { cache: 'no-store' });
     const data = await res.json();
     setCajaStats(data);
     setActualCash('');
