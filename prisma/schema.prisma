@@ -46,3 +46,23 @@ model Expense {
   paymentMethod String   @default("EFECTIVO")
   date          DateTime @default(now())
 }
+
+model Customer {
+  id           Int                @id @default(autoincrement())
+  name         String
+  phone        String?
+  notes        String?
+  createdAt    DateTime           @default(now())
+  transactions FiadoTransaction[]
+}
+
+model FiadoTransaction {
+  id          Int      @id @default(autoincrement())
+  customerId  Int
+  customer    Customer @relation(fields: [customerId], references: [id])
+  type        String   // "FIADO" | "ABONO"
+  amount      Float
+  description String?
+  date        DateTime @default(now())
+}
+
