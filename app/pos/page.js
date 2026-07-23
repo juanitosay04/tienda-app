@@ -27,6 +27,11 @@ export default function POS() {
   const [weightModal, setWeightModal] = useState({ open: false, product: null, amount: '' });
   const weightInputRef = useRef(null);
 
+  // Modal de cambio/vuelto
+  const [cambioModal, setCambioModal] = useState({ open: false, received: '' });
+  const cambioInputRef = useRef(null);
+  useEffect(() => { if (cambioModal.open && cambioInputRef.current) setTimeout(() => cambioInputRef.current?.focus(), 80); }, [cambioModal.open]);
+
   // Modal Cuadre de Caja
   const [showCaja, setShowCaja] = useState(false);
   const [cajaStats, setCajaStats] = useState(null);
@@ -104,8 +109,16 @@ export default function POS() {
   // ── Cobrar ──
   const handleCobrar = async (method) => {
     if (cart.length === 0) return;
-    setProcessing(true);
+    // Para efectivo → abrir modal de cambio primero
+    if (method === 'EFECTIVO') {
+      setCambioModal({ open: true, received: '' });
+      return;
+    }
+    await procesarVenta(method);
+  };
 
+  const procesarVenta = async (method) => {
+    setProcessing(true);
     const items = cart.map(item => ({
       productId: item.product.id,
       quantity: item.quantity,
@@ -119,7 +132,7 @@ export default function POS() {
     });
 
     if (res.ok) {
-      alert('¡Venta registrada con éxito!');
+      setCambioModal({ open: false, received: '' });
       setCart([]);
       const newData = await fetch('/api/products?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json());
       setProducts(newData);
@@ -355,13 +368,90 @@ export default function POS() {
               style={{ width: '100%', padding: '14px', fontSize: '1.1rem', fontWeight: 'bold', borderRadius: '8px', border: 'none', cursor: cart.length === 0 ? 'not-allowed' : 'pointer', background: cart.length === 0 ? '#cbd5e1' : '#10b981', color: 'white', boxShadow: cart.length === 0 ? 'none' : '0 4px 8px rgba(16,185,129,0.3)', transition: 'all 0.2s' }}>
               💵 COBRAR EN EFECTIVO
             </button>
-            <button onClick={() => handleCobrar('TRANSFERENCIA')} disabled={processing || cart.length === 0}
+            <button onClick={() => procesarVenta('TRANSFERENCIA')} disabled={processing || cart.length === 0}
               style={{ width: '100%', padding: '12px', fontSize: '1rem', fontWeight: 'bold', borderRadius: '8px', border: '1px solid #94a3b8', cursor: cart.length === 0 ? 'not-allowed' : 'pointer', background: cart.length === 0 ? '#f1f5f9' : 'white', color: cart.length === 0 ? '#94a3b8' : '#334155', transition: 'all 0.2s' }}>
               📱 PAGO POR NEQUI/BANCO
             </button>
           </div>
         </div>
       </div>
+
+      {/* ── Modal de Cambio / Vuelto ── */}
+      {cambioModal.open && (
+        <div onClick={e => { if (e.target === e.currentTarget) setCambioModal({ open: false, received: '' }); }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.75)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999, backdropFilter: 'blur(6px)' }}>
+          <div style={{ background: 'white', borderRadius: '20px', width: '100%', maxWidth: '400px', overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.3)' }}>
+
+            {/* Header verde */}
+            <div style={{ padding: '22px 28px 18px', background: 'linear-gradient(135deg, #ecfdf5, #d1fae5)', borderBottom: '1px solid #a7f3d0' }}>
+              <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: '700', color: '#065f46', textTransform: 'uppercase', letterSpacing: '0.07em' }}>💵 Cobro en Efectivo</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
+                <span style={{ fontSize: '0.9rem', color: '#374151', fontWeight: '600' }}>Total a cobrar:</span>
+                <span style={{ fontSize: '1.8rem', fontWeight: '900', color: '#065f46' }}>${Math.round(total).toLocaleString('es-CO')}</span>
+              </div>
+            </div>
+
+            {/* Input de recibido */}
+            <div style={{ padding: '24px 28px' }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '700', color: '#374151', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>¿Con cuánto paga el cliente?</label>
+              <input
+                ref={cambioInputRef}
+                type="number"
+                step="100"
+                min="0"
+                className="input"
+                value={cambioModal.received}
+                onChange={e => setCambioModal(m => ({ ...m, received: e.target.value }))}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && parseFloat(cambioModal.received) >= Math.round(total)) procesarVenta('EFECTIVO');
+                  if (e.key === 'Escape') setCambioModal({ open: false, received: '' });
+                }}
+                placeholder="Ej: 50000"
+                style={{ fontSize: '2rem', fontWeight: '900', textAlign: 'center', border: '2px solid #a7f3d0', borderRadius: '12px', padding: '14px', letterSpacing: '1px' }}
+              />
+
+              {/* Cambio calculado */}
+              {(() => {
+                const received = parseFloat(cambioModal.received) || 0;
+                const cambio = received - Math.round(total);
+                if (!cambioModal.received) return (
+                  <div style={{ marginTop: '16px', padding: '14px', background: '#f8fafc', borderRadius: '12px', textAlign: 'center', color: '#94a3b8', fontSize: '0.9rem' }}>Ingresa el monto recibido</div>
+                );
+                if (cambio < 0) return (
+                  <div style={{ marginTop: '16px', padding: '16px', background: '#fef2f2', borderRadius: '12px', border: '2px solid #fecaca', textAlign: 'center' }}>
+                    <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: '700', color: '#dc2626' }}>⚠ FALTA POR PAGAR</p>
+                    <p style={{ margin: '4px 0 0', fontSize: '2rem', fontWeight: '900', color: '#dc2626' }}>${Math.abs(cambio).toLocaleString('es-CO')}</p>
+                  </div>
+                );
+                return (
+                  <div style={{ marginTop: '16px', padding: '16px', background: cambio === 0 ? '#f0fdf4' : 'linear-gradient(135deg,#ecfdf5,#d1fae5)', borderRadius: '12px', border: `2px solid ${cambio === 0 ? '#86efac' : '#6ee7b7'}`, textAlign: 'center' }}>
+                    <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: '700', color: '#065f46', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🪙 {cambio === 0 ? 'Pago exacto ✓' : 'Cambio a devolver'}</p>
+                    {cambio > 0 && <p style={{ margin: '6px 0 0', fontSize: '2.8rem', fontWeight: '900', color: '#065f46', lineHeight: 1 }}>${cambio.toLocaleString('es-CO')}</p>}
+                    <p style={{ margin: '6px 0 0', fontSize: '0.78rem', color: '#6ee7b7' }}>Recibido: ${received.toLocaleString('es-CO')} · Total: ${Math.round(total).toLocaleString('es-CO')}</p>
+                  </div>
+                );
+              })()}
+
+              {/* Botones */}
+              <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                <button onClick={() => setCambioModal({ open: false, received: '' })}
+                  style={{ flex: 1, padding: '13px', borderRadius: '10px', border: '1px solid #e2e8f0', background: 'white', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit', color: '#475569', fontSize: '0.9rem' }}>Cancelar</button>
+                <button
+                  onClick={() => procesarVenta('EFECTIVO')}
+                  disabled={processing || !cambioModal.received || parseFloat(cambioModal.received) < Math.round(total)}
+                  style={{ flex: 2, padding: '13px', borderRadius: '10px', border: 'none', fontWeight: '800', cursor: 'pointer', fontFamily: 'inherit', fontSize: '1rem', transition: 'all 0.2s',
+                    background: (processing || !cambioModal.received || parseFloat(cambioModal.received) < Math.round(total)) ? '#e2e8f0' : '#10b981',
+                    color: (processing || !cambioModal.received || parseFloat(cambioModal.received) < Math.round(total)) ? '#94a3b8' : 'white',
+                    boxShadow: (processing || !cambioModal.received || parseFloat(cambioModal.received) < Math.round(total)) ? 'none' : '0 4px 12px rgba(16,185,129,0.35)'
+                  }}>
+                  {processing ? 'Procesando...' : '✅ Confirmar Cobro'}
+                </button>
+              </div>
+              <p style={{ margin: '10px 0 0', textAlign: 'center', fontSize: '0.74rem', color: '#94a3b8' }}>Presiona Enter para confirmar cuando el monto sea suficiente</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Modal de Peso/Cantidad (Fruver) ── */}
       {weightModal.open && weightModal.product && (
