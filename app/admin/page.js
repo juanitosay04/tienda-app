@@ -10,14 +10,15 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const t = Date.now();
     Promise.all([
-      fetch('/api/products').then(r => r.json()),
-      fetch('/api/transactions').then(r => r.json()),
-      fetch('/api/expenses').then(r => r.json())
+      fetch(`/api/products?t=${t}`, { cache: 'no-store' }).then(r => r.json()),
+      fetch(`/api/transactions?t=${t}`, { cache: 'no-store' }).then(r => r.json()),
+      fetch(`/api/expenses?t=${t}`, { cache: 'no-store' }).then(r => r.json())
     ]).then(([prodData, txData, expData]) => {
-      setProducts(prodData);
-      setTransactions(txData);
-      setExpenses(expData);
+      setProducts(Array.isArray(prodData) ? prodData : []);
+      setTransactions(Array.isArray(txData) ? txData : []);
+      setExpenses(Array.isArray(expData) ? expData : []);
       setLoading(false);
     });
   }, []);
@@ -33,6 +34,22 @@ export default function AdminDashboard() {
   
   const netBalance = salesToday - expensesToday;
 
+  // Valor total del inventario = suma de (precio × stock) por producto
+  const inventoryValue = products.reduce((sum, p) => sum + (p.price * p.stock), 0);
+  const totalProducts = products.length;
+  const totalUnits = products.reduce((sum, p) => sum + p.stock, 0);
+
+  // Desglose por categoría
+  const byCategory = products.reduce((acc, p) => {
+    if (!acc[p.category]) acc[p.category] = { value: 0, units: 0 };
+    acc[p.category].value += p.price * p.stock;
+    acc[p.category].units += p.stock;
+    return acc;
+  }, {});
+  const categoryList = Object.entries(byCategory)
+    .map(([cat, d]) => ({ cat, ...d }))
+    .sort((a, b) => b.value - a.value);
+
   return (
     <div className="animate-fade-in" style={{ padding: '30px', maxWidth: '1200px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
@@ -45,36 +62,88 @@ export default function AdminDashboard() {
 
       {loading ? <p>Cargando datos del negocio...</p> : (
         <>
-          {/* Tarjetas de Resumen */}
-          <div className="grid-cards" style={{ marginBottom: '40px' }}>
-            <div className="glass-panel" style={{ padding: '30px' }}>
-              <h3 style={{ color: 'var(--text-muted)' }}>Ventas Hoy (Ingresos)</h3>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--success)', marginTop: '10px' }}>
+          {/* ── Tarjetas operativas del día ── */}
+          <div className="grid-cards" style={{ marginBottom: '30px' }}>
+            <div className="glass-panel" style={{ padding: '26px' }}>
+              <h3 style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>📈 Ventas Hoy</h3>
+              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--success)', marginTop: '8px' }}>
                 ${salesToday.toLocaleString('es-CO')}
               </div>
-              <div style={{ marginTop: '10px', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                Efectivo: ${salesEfectivo.toLocaleString('es-CO')} <br />
-                Transferencias: ${salesTransfer.toLocaleString('es-CO')}
-              </div>
-            </div>
-            
-            <div className="glass-panel" style={{ padding: '30px' }}>
-              <h3 style={{ color: 'var(--text-muted)' }}>Gastos Hoy (Salidas)</h3>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--danger)', marginTop: '10px' }}>
-                -${expensesToday.toLocaleString('es-CO')}
-              </div>
-              <div style={{ marginTop: '10px', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                Efectivo: ${expensesEfectivo.toLocaleString('es-CO')} <br />
-                Transferencias: ${expensesTransfer.toLocaleString('es-CO')}
+              <div style={{ marginTop: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                💵 Efectivo: ${salesEfectivo.toLocaleString('es-CO')}<br />
+                📱 Nequi/Banco: ${salesTransfer.toLocaleString('es-CO')}
               </div>
             </div>
 
-            <div className="glass-panel" style={{ padding: '30px', background: netBalance >= 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', border: netBalance >= 0 ? '1px solid var(--success)' : '1px solid var(--danger)' }}>
-              <h3 style={{ color: 'var(--text-main)' }}>💰 Balance Neto Diario</h3>
-              <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: netBalance >= 0 ? 'var(--success)' : 'var(--danger)', marginTop: '10px' }}>
-                ${netBalance.toLocaleString('es-CO')}
+            <div className="glass-panel" style={{ padding: '26px' }}>
+              <h3 style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>💸 Gastos Hoy</h3>
+              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--danger)', marginTop: '8px' }}>
+                -${expensesToday.toLocaleString('es-CO')}
+              </div>
+              <div style={{ marginTop: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                💵 Efectivo: ${expensesEfectivo.toLocaleString('es-CO')}<br />
+                📱 Transferencia: ${expensesTransfer.toLocaleString('es-CO')}
               </div>
             </div>
+
+            <div className="glass-panel" style={{ padding: '26px', background: netBalance >= 0 ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)', border: `1px solid ${netBalance >= 0 ? 'var(--success)' : 'var(--danger)'}` }}>
+              <h3 style={{ color: 'var(--text-main)', fontSize: '0.9rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>💰 Balance Neto Hoy</h3>
+              <div style={{ fontSize: '2.2rem', fontWeight: 'bold', color: netBalance >= 0 ? 'var(--success)' : 'var(--danger)', marginTop: '8px' }}>
+                ${netBalance.toLocaleString('es-CO')}
+              </div>
+              <div style={{ marginTop: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                {netBalance >= 0 ? '✅ Día positivo' : '⚠ Gastos mayores a ventas'}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Tarjetas de Inventario ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px', marginBottom: '40px' }}>
+
+            {/* Valor total */}
+            <div className="glass-panel" style={{ padding: '26px', background: 'linear-gradient(135deg, rgba(59,130,246,0.08), rgba(99,102,241,0.06))', border: '1px solid rgba(59,130,246,0.2)' }}>
+              <h3 style={{ color: '#3b82f6', fontSize: '0.9rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>📦 Valor Total del Inventario</h3>
+              <div style={{ fontSize: '2rem', fontWeight: '900', color: '#1e293b' }}>
+                ${inventoryValue.toLocaleString('es-CO')}
+              </div>
+              <div style={{ marginTop: '10px', fontSize: '0.83rem', color: '#64748b', display: 'flex', gap: '16px' }}>
+                <span>🏷 {totalProducts} productos</span>
+                <span>📊 {totalUnits.toLocaleString('es-CO')} unidades</span>
+              </div>
+            </div>
+
+            {/* Alertas stock bajo */}
+            <div className="glass-panel" style={{ padding: '26px', background: lowStockProducts.length > 0 ? 'rgba(239,68,68,0.06)' : 'rgba(16,185,129,0.06)', border: `1px solid ${lowStockProducts.length > 0 ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}` }}>
+              <h3 style={{ color: lowStockProducts.length > 0 ? 'var(--danger)' : 'var(--success)', fontSize: '0.9rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                {lowStockProducts.length > 0 ? '🚨 Stock Bajo' : '✅ Stock OK'}
+              </h3>
+              <div style={{ fontSize: '2rem', fontWeight: '900', color: lowStockProducts.length > 0 ? 'var(--danger)' : 'var(--success)' }}>
+                {lowStockProducts.length} <span style={{ fontSize: '1rem', fontWeight: '500' }}>productos</span>
+              </div>
+              <div style={{ marginTop: '10px', fontSize: '0.83rem', color: '#64748b' }}>
+                {lowStockProducts.length > 0 ? lowStockProducts.slice(0, 2).map(p => p.name).join(', ') + (lowStockProducts.length > 2 ? ` y ${lowStockProducts.length - 2} más...` : '') : 'Todo el inventario en niveles óptimos'}
+              </div>
+            </div>
+
+            {/* Desglose por categoría - top 3 */}
+            <div className="glass-panel" style={{ padding: '26px' }}>
+              <h3 style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>🏆 Top Categorías (Valor)</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {categoryList.slice(0, 4).map(({ cat, value, units }) => (
+                  <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '0.85rem', fontWeight: '600', color: '#1e293b' }}>{cat}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{units} und</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '0.88rem', fontWeight: '700', color: '#3b82f6' }}>${Math.round(value).toLocaleString('es-CO')}</div>
+                      <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{inventoryValue > 0 ? ((value / inventoryValue) * 100).toFixed(1) : 0}%</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '30px' }}>
