@@ -32,8 +32,11 @@ export default function POS() {
   const cambioInputRef = useRef(null);
   useEffect(() => { if (cambioModal.open && cambioInputRef.current) setTimeout(() => cambioInputRef.current?.focus(), 80); }, [cambioModal.open]);
 
-  // Modal Cuadre de Caja
+  // Modal Miniarqueo (solo lectura, sin guardar)
+  const [showMiniarqueo, setShowMiniarqueo] = useState(false);
+  // Modal Cierre de Día (guarda en BD)
   const [showCaja, setShowCaja] = useState(false);
+  const [cierrePaso, setCierrePaso] = useState(1); // 1=confirmacion, 2=formulario
   const [cajaStats, setCajaStats] = useState(null);
   const [actualCash, setActualCash] = useState('');
 
@@ -142,12 +145,22 @@ export default function POS() {
     setProcessing(false);
   };
 
-  // ── Cuadre de Caja ──
+  // ── Miniarqueo (solo lectura) ──
+  const openMiniarqueo = async () => {
+    const res = await fetch('/api/caja?t=' + Date.now(), { cache: 'no-store' });
+    const data = await res.json();
+    setCajaStats(data);
+    setActualCash('');
+    setShowMiniarqueo(true);
+  };
+
+  // ── Cierre de Día ──
   const openCierreCaja = async () => {
     const res = await fetch('/api/caja?t=' + Date.now(), { cache: 'no-store' });
     const data = await res.json();
     setCajaStats(data);
     setActualCash('');
+    setCierrePaso(1);
     setShowCaja(true);
   };
 
@@ -204,7 +217,8 @@ export default function POS() {
           <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a' }}>🛒 Terminal POS</h2>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button className="btn" onClick={() => setShowExpense(true)} style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fca5a5', fontSize: '0.85rem' }}>💸 Gasto</button>
-            <button className="btn" onClick={openCierreCaja} style={{ background: '#fffbeb', color: '#f59e0b', border: '1px solid #fcd34d', fontSize: '0.85rem' }}>💰 Cuadrar Caja</button>
+            <button className="btn" onClick={openMiniarqueo} style={{ background: '#fffbeb', color: '#d97706', border: '1px solid #fcd34d', fontSize: '0.85rem' }}>🔍 Miniarqueo</button>
+            <button className="btn" onClick={openCierreCaja} style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5', fontSize: '0.85rem', fontWeight: '700' }}>🔒 Cerrar Día</button>
             <button className="btn" onClick={() => router.push('/')} style={{ background: '#f8fafc', color: '#64748b', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}>Salir</button>
           </div>
         </div>
@@ -520,56 +534,164 @@ export default function POS() {
         </div>
       )}
 
-      {/* ── Modal Cuadre de Caja ── */}
-      {showCaja && cajaStats && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
-          <div className="glass-panel" style={{ padding: '28px', width: '100%', maxWidth: '450px', background: 'white', borderRadius: '16px', boxShadow: '0 25px 50px rgba(0,0,0,0.25)' }}>
-            <h2 style={{ margin: '0 0 20px 0', color: '#0f172a' }}>💰 Cuadre de Caja</h2>
-            <div style={{ marginBottom: '20px', padding: '16px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              {/* Desglose */}
+      {/* ── Modal MINIARQUEO (solo lectura, sin guardar) ── */}
+      {showMiniarqueo && cajaStats && (
+        <div onClick={e => { if (e.target === e.currentTarget) setShowMiniarqueo(false); }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
+          <div style={{ padding: '28px', width: '100%', maxWidth: '460px', background: 'white', borderRadius: '16px', boxShadow: '0 25px 50px rgba(0,0,0,0.25)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <h2 style={{ margin: 0, color: '#d97706' }}>🔍 Miniarqueo</h2>
+              <span style={{ fontSize: '0.75rem', background: '#fffbeb', color: '#d97706', fontWeight: '700', padding: '4px 10px', borderRadius: '20px', border: '1px solid #fcd34d' }}>Solo lectura — no cierra el día</span>
+            </div>
+            <p style={{ margin: '0 0 18px', fontSize: '0.83rem', color: '#94a3b8' }}>Verifica en cualquier momento si la caja va cuadrando.</p>
+
+            <div style={{ padding: '16px', background: '#fffbeb', borderRadius: '10px', border: '1px solid #fcd34d', marginBottom: '16px' }}>
               {cajaStats.cajaBase > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', color: '#475569', fontSize: '0.88rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '7px', color: '#78350f', fontSize: '0.88rem' }}>
                   <span>🏦 Saldo base (arranque):</span><strong style={{ color: '#3b82f6' }}>${cajaStats.cajaBase.toLocaleString('es-CO')}</strong>
                 </div>
               )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', color: '#475569', fontSize: '0.88rem' }}>
-                <span>💵 Ventas en efectivo:</span><strong style={{ color: '#16a34a' }}>+${(cajaStats.salesEfectivo || 0).toLocaleString('es-CO')}</strong>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '7px', color: '#78350f', fontSize: '0.88rem' }}>
+                <span>💵 Ventas efectivo acumuladas:</span><strong style={{ color: '#16a34a' }}>+${(cajaStats.salesEfectivo || 0).toLocaleString('es-CO')}</strong>
               </div>
               {cajaStats.totalExpensesEfectivo > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', color: '#475569', fontSize: '0.88rem' }}>
-                  <span>💸 Gastos en efectivo:</span><strong style={{ color: '#dc2626' }}>-${cajaStats.totalExpensesEfectivo.toLocaleString('es-CO')}</strong>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '7px', color: '#78350f', fontSize: '0.88rem' }}>
+                  <span>💸 Gastos efectivo:</span><strong style={{ color: '#dc2626' }}>-${cajaStats.totalExpensesEfectivo.toLocaleString('es-CO')}</strong>
                 </div>
               )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', color: '#475569', fontSize: '0.88rem' }}>
-                <span>📱 Nequi/Banco (separado):</span><strong>${cajaStats.totalTransfers.toLocaleString('es-CO')}</strong>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '7px', color: '#78350f', fontSize: '0.88rem' }}>
+                <span>📱 Nequi/Banco:</span><strong>${cajaStats.totalTransfers.toLocaleString('es-CO')}</strong>
               </div>
-              <div style={{ borderTop: '2px dashed #cbd5e1', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: '700', color: '#1e293b' }}>Efectivo esperado en caja:</span>
-                <span style={{ fontSize: '1.5rem', color: 'var(--primary)', fontWeight: '900' }}>${cajaStats.expectedCash.toLocaleString('es-CO')}</span>
+              <div style={{ borderTop: '2px dashed #fcd34d', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: '700', color: '#78350f' }}>Efectivo esperado ahora:</span>
+                <span style={{ fontSize: '1.5rem', color: '#d97706', fontWeight: '900' }}>${cajaStats.expectedCash.toLocaleString('es-CO')}</span>
               </div>
-              <p style={{ margin: '8px 0 0', fontSize: '0.72rem', color: '#94a3b8', textAlign: 'right' }}>
-                = base ${cajaStats.cajaBase?.toLocaleString('es-CO')} + ventas − gastos
-              </p>
             </div>
-            <form onSubmit={submitCierreCaja} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', color: '#475569', marginBottom: '6px', fontWeight: '600' }}>¿Cuánto efectivo físico hay en caja?</label>
-                <input required type="number" className="input" value={actualCash} onChange={e => setActualCash(e.target.value)} placeholder="Ej: 150000" style={{ fontSize: '1.3rem', fontWeight: 'bold' }} autoFocus />
-              </div>
-              {actualCash !== '' && (
-                <div style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', borderRadius: '8px', fontSize: '1rem',
-                  backgroundColor: (Number(actualCash) - cajaStats.expectedCash) < 0 ? '#fef2f2' : '#f0fdf4',
-                  color: (Number(actualCash) - cajaStats.expectedCash) < 0 ? '#dc2626' : '#16a34a' }}>
-                  {(Number(actualCash) - cajaStats.expectedCash) < 0 ? '⚠ Faltan: ' : '✅ Sobran: '}
-                  ${Math.abs(Number(actualCash) - cajaStats.expectedCash).toLocaleString('es-CO')}
-                  {(Number(actualCash) - cajaStats.expectedCash) === 0 && ' — Cuadra perfecto ✓'}
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: '#475569', marginBottom: '6px', fontWeight: '600' }}>¿Cuánto cuenta en caja ahora? (opcional)</label>
+              <input type="number" className="input" value={actualCash} onChange={e => setActualCash(e.target.value)} placeholder="Cuenta el efectivo y escribe aquí..." style={{ fontSize: '1.2rem', fontWeight: 'bold', border: '2px solid #fcd34d', borderRadius: '10px' }} autoFocus />
+            </div>
+
+            {actualCash !== '' && (() => {
+              const diff = Number(actualCash) - cajaStats.expectedCash;
+              return (
+                <div style={{ padding: '14px', textAlign: 'center', fontWeight: '700', borderRadius: '10px', fontSize: '1.05rem', marginBottom: '16px',
+                  backgroundColor: diff < 0 ? '#fef2f2' : '#f0fdf4',
+                  color: diff < 0 ? '#dc2626' : '#16a34a',
+                  border: `1px solid ${diff < 0 ? '#fecaca' : '#bbf7d0'}` }}>
+                  {diff < 0 ? '⚠ Faltan: ' : diff === 0 ? '✅ Cuadra perfecto' : '✅ Sobran: '}
+                  {diff !== 0 && `$${Math.abs(diff).toLocaleString('es-CO')}`}
                 </div>
-              )}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                <button type="button" onClick={() => setShowCaja(false)} style={{ padding: '10px 18px', borderRadius: '8px', border: '1px solid #cbd5e1', background: 'white', fontWeight: '600', cursor: 'pointer', color: '#475569' }}>Cancelar</button>
-                <button type="submit" disabled={processing} style={{ padding: '10px 22px', borderRadius: '8px', border: 'none', background: 'var(--primary)', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>Confirmar Cierre</button>
-              </div>
-            </form>
+              );
+            })()}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowMiniarqueo(false)} style={{ padding: '11px 28px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', fontWeight: '600', cursor: 'pointer', color: '#475569', fontFamily: 'inherit', fontSize: '0.95rem' }}>
+                Listo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal CIERRE DE DÍA (guarda en BD) ── */}
+      {showCaja && cajaStats && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.75)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(6px)' }}>
+          <div style={{ width: '100%', maxWidth: '470px', background: 'white', borderRadius: '18px', boxShadow: '0 30px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
+
+            {/* ── Paso 1: Confirmación ── */}
+            {cierrePaso === 1 && (
+              <>
+                <div style={{ padding: '24px 28px 18px', background: 'linear-gradient(135deg,#fef2f2,#fff5f5)', borderBottom: '1px solid #fecaca' }}>
+                  <h2 style={{ margin: 0, color: '#991b1b', fontSize: '1.15rem' }}>🔒 Cerrar el Día</h2>
+                  <p style={{ margin: '6px 0 0', fontSize: '0.85rem', color: '#94a3b8' }}>Esta acción registra el cierre definitivo de la jornada</p>
+                </div>
+                <div style={{ padding: '24px 28px' }}>
+                  <div style={{ padding: '16px', background: '#fef9c3', borderRadius: '10px', border: '1px solid #fde047', marginBottom: '20px' }}>
+                    <p style={{ margin: 0, fontSize: '0.88rem', color: '#713f12', fontWeight: '500', lineHeight: '1.5' }}>
+                      ⚠️ <strong>¿Ya terminaste el día?</strong><br/>
+                      El cierre de caja es para cuando <strong>ya no vas a atender más clientes</strong> en el día.<br/>
+                      Si quieres solo verificar cómo va la caja, usa <strong>🔍 Miniarqueo</strong>.
+                    </p>
+                  </div>
+                  <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '14px 16px', marginBottom: '20px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', color: '#475569', marginBottom: '6px' }}>
+                      <span># Ventas del día:</span><strong>{cajaStats.salesCount}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', color: '#475569', marginBottom: '6px' }}>
+                      <span>Ventas efectivo:</span><strong style={{ color: '#16a34a' }}>${(cajaStats.salesEfectivo || 0).toLocaleString('es-CO')}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', color: '#475569' }}>
+                      <span>Nequi/Banco:</span><strong>${cajaStats.totalTransfers.toLocaleString('es-CO')}</strong>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button onClick={() => setShowCaja(false)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', fontWeight: '600', cursor: 'pointer', color: '#475569', fontFamily: 'inherit' }}>
+                      Cancelar
+                    </button>
+                    <button onClick={() => setCierrePaso(2)} style={{ flex: 2, padding: '12px', borderRadius: '8px', border: 'none', background: '#dc2626', color: 'white', fontWeight: '800', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.95rem', boxShadow: '0 4px 10px rgba(220,38,38,0.3)' }}>
+                      Sí, cerrar el día →
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* ── Paso 2: Conteo de caja ── */}
+            {cierrePaso === 2 && (
+              <>
+                <div style={{ padding: '20px 28px 16px', background: 'linear-gradient(135deg,#fef2f2,#fff5f5)', borderBottom: '1px solid #fecaca' }}>
+                  <h2 style={{ margin: 0, color: '#991b1b', fontSize: '1.05rem' }}>🔒 Cierre de Día — Conteo Final</h2>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: '#94a3b8' }}>Este registro queda guardado en el historial</p>
+                </div>
+                <div style={{ padding: '22px 28px' }}>
+                  <div style={{ padding: '14px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
+                    {cajaStats.cajaBase > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', color: '#475569', fontSize: '0.85rem' }}>
+                        <span>🏦 Base:</span><strong style={{ color: '#3b82f6' }}>${cajaStats.cajaBase.toLocaleString('es-CO')}</strong>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', color: '#475569', fontSize: '0.85rem' }}>
+                      <span>💵 Ventas efectivo:</span><strong style={{ color: '#16a34a' }}>+${(cajaStats.salesEfectivo || 0).toLocaleString('es-CO')}</strong>
+                    </div>
+                    {cajaStats.totalExpensesEfectivo > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', color: '#475569', fontSize: '0.85rem' }}>
+                        <span>💸 Gastos:</span><strong style={{ color: '#dc2626' }}>-${cajaStats.totalExpensesEfectivo.toLocaleString('es-CO')}</strong>
+                      </div>
+                    )}
+                    <div style={{ borderTop: '2px dashed #e2e8f0', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: '700', color: '#1e293b' }}>Efectivo esperado:</span>
+                      <span style={{ fontSize: '1.4rem', color: '#dc2626', fontWeight: '900' }}>${cajaStats.expectedCash.toLocaleString('es-CO')}</span>
+                    </div>
+                  </div>
+
+                  <form onSubmit={submitCierreCaja} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.85rem', color: '#475569', marginBottom: '6px', fontWeight: '600' }}>¿Cuánto efectivo físico hay en caja?</label>
+                      <input required type="number" className="input" value={actualCash} onChange={e => setActualCash(e.target.value)} placeholder="Cuenta el efectivo y escríbelo aquí" style={{ fontSize: '1.3rem', fontWeight: 'bold', border: '2px solid #fca5a5', borderRadius: '10px' }} autoFocus />
+                    </div>
+                    {actualCash !== '' && (() => {
+                      const diff = Number(actualCash) - cajaStats.expectedCash;
+                      return (
+                        <div style={{ padding: '12px', textAlign: 'center', fontWeight: '700', borderRadius: '8px', fontSize: '1rem',
+                          backgroundColor: diff < 0 ? '#fef2f2' : '#f0fdf4',
+                          color: diff < 0 ? '#dc2626' : '#16a34a' }}>
+                          {diff < 0 ? '⚠ Faltan: ' : '✅ Sobran: '}${Math.abs(diff).toLocaleString('es-CO')}
+                          {diff === 0 && ' — Cuadra perfecto ✓'}
+                        </div>
+                      );
+                    })()}
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button type="button" onClick={() => setCierrePaso(1)} style={{ flex: 1, padding: '11px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', fontWeight: '600', cursor: 'pointer', color: '#475569', fontFamily: 'inherit' }}>← Atrás</button>
+                      <button type="submit" disabled={processing} style={{ flex: 2, padding: '11px', borderRadius: '8px', border: 'none', background: processing ? '#94a3b8' : '#dc2626', color: 'white', fontWeight: '800', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.95rem' }}>
+                        {processing ? 'Cerrando...' : '🔒 Confirmar Cierre Definitivo'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

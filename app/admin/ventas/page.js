@@ -4,9 +4,18 @@ import { useRouter } from 'next/navigation';
 
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
-const fmtDay = (dateStr) => {
-  const d = new Date(dateStr + 'T12:00:00');
-  return d.toLocaleDateString('es-CO', { weekday: 'long', day: '2-digit', month: 'long' });
+// Convierte una fecha a clave local YYYY-MM-DD (usa hora del navegador, no UTC)
+const toLocalKey = (dateStr) => {
+  const d = new Date(dateStr);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+const fmtDay = (localKey) => {
+  const [y, m, d] = localKey.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('es-CO', { weekday: 'long', day: '2-digit', month: 'long' });
 };
 
 const fmtTime = (dateStr) => new Date(dateStr).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
@@ -49,6 +58,7 @@ export default function VentasHistory() {
   const monthTxs = useMemo(() => {
     return transactions.filter(tx => {
       const d = new Date(tx.date);
+      // Usar getMonth/getFullYear para comparar en hora local del navegador
       return d.getMonth() === viewMonth && d.getFullYear() === viewYear;
     });
   }, [transactions, viewMonth, viewYear]);
@@ -64,7 +74,7 @@ export default function VentasHistory() {
   const byDay = useMemo(() => {
     const groups = {};
     monthTxs.forEach(tx => {
-      const key = new Date(tx.date).toISOString().split('T')[0];
+      const key = toLocalKey(tx.date); // hora local, no UTC
       if (!groups[key]) groups[key] = [];
       groups[key].push(tx);
     });
@@ -206,7 +216,7 @@ export default function VentasHistory() {
                         {/* Indicador día */}
                         <div style={{ width: '46px', height: '46px', borderRadius: '10px', background: '#f0fdf4', border: '1px solid #bbf7d0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                           <span style={{ fontSize: '1.1rem', fontWeight: '900', color: '#16a34a', lineHeight: 1 }}>
-                            {new Date(date + 'T12:00:00').getDate()}
+                            {date.split('-')[2]}
                           </span>
                           <span style={{ fontSize: '0.6rem', color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase' }}>
                             {new Date(date + 'T12:00:00').toLocaleDateString('es-CO', { month: 'short' })}
