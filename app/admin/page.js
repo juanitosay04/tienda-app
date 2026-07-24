@@ -55,9 +55,11 @@ export default function AdminDashboard() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
         <h1>Panel de Administración</h1>
         <div style={{ display: 'flex', gap: '10px' }}>
+          <button className="btn btn-primary" onClick={() => router.push('/admin/ventas')}>📈 Historial de Ventas</button>
           <button className="btn btn-primary" onClick={() => router.push('/admin/inventory')}>📦 Gestor de Inventario</button>
           <button className="btn" onClick={() => router.push('/')} style={{ background: 'var(--bg-panel)', color: 'var(--text-main)', border: '1px solid var(--border-color)' }}>Cerrar Sesión</button>
         </div>
+
       </div>
 
       {loading ? <p>Cargando datos del negocio...</p> : (
