@@ -21,6 +21,10 @@ export async function GET(request) {
     const expenses = await prisma.expense.findMany({
       where: { date: { gt: startDate } }
     });
+
+    // Leer saldo base de caja desde configuración
+    const cajaBaseConfig = await prisma.storeConfig.findUnique({ where: { key: 'caja_base' } });
+    const cajaBase = cajaBaseConfig ? Number(cajaBaseConfig.value) : 0;
     
     const salesEfectivo = transactions.filter(t => t.paymentMethod === 'EFECTIVO').reduce((sum, t) => sum + t.total, 0);
     const salesTransfer = transactions.filter(t => t.paymentMethod === 'TRANSFERENCIA').reduce((sum, t) => sum + t.total, 0);
@@ -29,7 +33,9 @@ export async function GET(request) {
     const expensesTransfer = expenses.filter(e => e.paymentMethod === 'TRANSFERENCIA').reduce((sum, e) => sum + e.amount, 0);
     
     return Response.json({
-      expectedCash: salesEfectivo - expensesEfectivo,
+      cajaBase,
+      expectedCash: cajaBase + salesEfectivo - expensesEfectivo,
+      salesEfectivo,
       totalTransfers: salesTransfer,
       salesCount: transactions.length,
       totalExpensesEfectivo: expensesEfectivo,

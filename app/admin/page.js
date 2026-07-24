@@ -8,17 +8,28 @@ export default function AdminDashboard() {
   const [transactions, setTransactions] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [storeConfig, setStoreConfig] = useState({});
+  const [editingConfig, setEditingConfig] = useState(false);
+  const [configForm, setConfigForm] = useState({ caja_base: '', capital_inicial: '' });
+  const [savingConfig, setSavingConfig] = useState(false);
 
   useEffect(() => {
     const t = Date.now();
     Promise.all([
       fetch(`/api/products?t=${t}`, { cache: 'no-store' }).then(r => r.json()),
       fetch(`/api/transactions?t=${t}`, { cache: 'no-store' }).then(r => r.json()),
-      fetch(`/api/expenses?t=${t}`, { cache: 'no-store' }).then(r => r.json())
-    ]).then(([prodData, txData, expData]) => {
+      fetch(`/api/expenses?t=${t}`, { cache: 'no-store' }).then(r => r.json()),
+      fetch(`/api/config?t=${t}`, { cache: 'no-store' }).then(r => r.json()),
+    ]).then(([prodData, txData, expData, cfgData]) => {
       setProducts(Array.isArray(prodData) ? prodData : []);
       setTransactions(Array.isArray(txData) ? txData : []);
       setExpenses(Array.isArray(expData) ? expData : []);
+      const cfg = cfgData && !cfgData.error ? cfgData : {};
+      setStoreConfig(cfg);
+      setConfigForm({
+        caja_base: cfg.caja_base?.value || '',
+        capital_inicial: cfg.capital_inicial?.value || '',
+      });
       setLoading(false);
     });
   }, []);
@@ -215,6 +226,78 @@ export default function AdminDashboard() {
               )}
             </div>
           </div>
+
+          {/* ── Panel de Capital y Caja Base ── */}
+          <div className="glass-panel" style={{ padding: '28px', marginTop: '30px', background: 'linear-gradient(135deg,rgba(59,130,246,0.04),rgba(99,102,241,0.04))', border: '1px solid rgba(59,130,246,0.15)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ margin: 0, color: '#1e293b' }}>🏦 Capital y Saldo de Caja</h2>
+              {!editingConfig ? (
+                <button onClick={() => setEditingConfig(true)}
+                  style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', fontWeight: '600', cursor: 'pointer', color: '#475569', fontSize: '0.85rem', fontFamily: 'inherit' }}>✏️ Editar</button>
+              ) : (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={() => setEditingConfig(false)}
+                    style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', fontWeight: '600', cursor: 'pointer', color: '#475569', fontFamily: 'inherit', fontSize: '0.85rem' }}>Cancelar</button>
+                  <button onClick={async () => {
+                    setSavingConfig(true);
+                    await Promise.all([
+                      fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'caja_base', value: configForm.caja_base, label: 'Saldo Base de Caja (arranque diario)' }) }),
+                      fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'capital_inicial', value: configForm.capital_inicial, label: 'Capital Total de la Tienda' }) }),
+                    ]);
+                    const updated = await fetch('/api/config?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json());
+                    setStoreConfig(updated);
+                    setEditingConfig(false);
+                    setSavingConfig(false);
+                  }} disabled={savingConfig}
+                    style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#3b82f6', color: 'white', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem' }}>
+                    {savingConfig ? 'Guardando...' : '✅ Guardar'}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+              {/* Capital total */}
+              <div style={{ padding: '20px', background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>💰 Capital Total de la Tienda</p>
+                {editingConfig ? (
+                  <input type="number" className="input" value={configForm.capital_inicial}
+                    onChange={e => setConfigForm(f => ({ ...f, capital_inicial: e.target.value }))}
+                    style={{ marginTop: '8px', fontSize: '1.3rem', fontWeight: '800', border: '2px solid #bfdbfe', borderRadius: '8px' }} />
+                ) : (
+                  <p style={{ margin: '8px 0 0', fontSize: '1.8rem', fontWeight: '900', color: '#1e293b' }}>
+                    ${(storeConfig.capital_inicial?.value || 0).toLocaleString('es-CO')}
+                  </p>
+                )}
+                <p style={{ margin: '6px 0 0', fontSize: '0.78rem', color: '#94a3b8' }}>Dinero total disponible de la tienda</p>
+              </div>
+
+              {/* Saldo base de caja */}
+              <div style={{ padding: '20px', background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>🏦 Saldo Base de Caja</p>
+                {editingConfig ? (
+                  <input type="number" className="input" value={configForm.caja_base}
+                    onChange={e => setConfigForm(f => ({ ...f, caja_base: e.target.value }))}
+                    style={{ marginTop: '8px', fontSize: '1.3rem', fontWeight: '800', border: '2px solid #bfdbfe', borderRadius: '8px' }} />
+                ) : (
+                  <p style={{ margin: '8px 0 0', fontSize: '1.8rem', fontWeight: '900', color: '#3b82f6' }}>
+                    ${(storeConfig.caja_base?.value || 0).toLocaleString('es-CO')}
+                  </p>
+                )}
+                <p style={{ margin: '6px 0 0', fontSize: '0.78rem', color: '#94a3b8' }}>Arranca el día con este dinero en caja</p>
+              </div>
+
+              {/* Nota explicativa */}
+              <div style={{ padding: '20px', background: '#fffbeb', borderRadius: '12px', border: '1px solid #fef08a' }}>
+                <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: '700', color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.06em' }}>📌 Cómo funciona</p>
+                <p style={{ margin: '8px 0 0', fontSize: '0.83rem', color: '#78350f', lineHeight: '1.5' }}>
+                  El <strong>saldo base</strong> se suma automáticamente al efectivo esperado en el <strong>Cuadre de Caja</strong>.<br/>
+                  Fórmula: <em>Base + Ventas en efectivo − Gastos en efectivo</em>
+                </p>
+              </div>
+            </div>
+          </div>
+
         </>
       )}
     </div>

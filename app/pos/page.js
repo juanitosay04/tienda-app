@@ -523,15 +523,33 @@ export default function POS() {
       {/* ── Modal Cuadre de Caja ── */}
       {showCaja && cajaStats && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
-          <div className="glass-panel" style={{ padding: '28px', width: '100%', maxWidth: '430px', background: 'white', borderRadius: '16px', boxShadow: '0 25px 50px rgba(0,0,0,0.25)' }}>
+          <div className="glass-panel" style={{ padding: '28px', width: '100%', maxWidth: '450px', background: 'white', borderRadius: '16px', boxShadow: '0 25px 50px rgba(0,0,0,0.25)' }}>
             <h2 style={{ margin: '0 0 20px 0', color: '#0f172a' }}>💰 Cuadre de Caja</h2>
             <div style={{ marginBottom: '20px', padding: '16px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', color: '#475569', fontSize: '0.9rem' }}><span>Ventas:</span><strong>{cajaStats.salesCount}</strong></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', color: '#475569', fontSize: '0.9rem' }}><span>Nequi/Banco:</span><strong>${cajaStats.totalTransfers.toLocaleString('es-CO')}</strong></div>
-              <div style={{ borderTop: '1px dashed #cbd5e1', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: '600', color: '#1e293b' }}>Efectivo Esperado:</span>
-                <span style={{ fontSize: '1.4rem', color: 'var(--primary)', fontWeight: 'bold' }}>${cajaStats.expectedCash.toLocaleString('es-CO')}</span>
+              {/* Desglose */}
+              {cajaStats.cajaBase > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', color: '#475569', fontSize: '0.88rem' }}>
+                  <span>🏦 Saldo base (arranque):</span><strong style={{ color: '#3b82f6' }}>${cajaStats.cajaBase.toLocaleString('es-CO')}</strong>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', color: '#475569', fontSize: '0.88rem' }}>
+                <span>💵 Ventas en efectivo:</span><strong style={{ color: '#16a34a' }}>+${(cajaStats.salesEfectivo || 0).toLocaleString('es-CO')}</strong>
               </div>
+              {cajaStats.totalExpensesEfectivo > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', color: '#475569', fontSize: '0.88rem' }}>
+                  <span>💸 Gastos en efectivo:</span><strong style={{ color: '#dc2626' }}>-${cajaStats.totalExpensesEfectivo.toLocaleString('es-CO')}</strong>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', color: '#475569', fontSize: '0.88rem' }}>
+                <span>📱 Nequi/Banco (separado):</span><strong>${cajaStats.totalTransfers.toLocaleString('es-CO')}</strong>
+              </div>
+              <div style={{ borderTop: '2px dashed #cbd5e1', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: '700', color: '#1e293b' }}>Efectivo esperado en caja:</span>
+                <span style={{ fontSize: '1.5rem', color: 'var(--primary)', fontWeight: '900' }}>${cajaStats.expectedCash.toLocaleString('es-CO')}</span>
+              </div>
+              <p style={{ margin: '8px 0 0', fontSize: '0.72rem', color: '#94a3b8', textAlign: 'right' }}>
+                = base ${cajaStats.cajaBase?.toLocaleString('es-CO')} + ventas − gastos
+              </p>
             </div>
             <form onSubmit={submitCierreCaja} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
@@ -539,8 +557,12 @@ export default function POS() {
                 <input required type="number" className="input" value={actualCash} onChange={e => setActualCash(e.target.value)} placeholder="Ej: 150000" style={{ fontSize: '1.3rem', fontWeight: 'bold' }} autoFocus />
               </div>
               {actualCash !== '' && (
-                <div style={{ padding: '10px', textAlign: 'center', fontWeight: 'bold', borderRadius: '8px', backgroundColor: (Number(actualCash) - cajaStats.expectedCash) < 0 ? '#fef2f2' : '#f0fdf4', color: (Number(actualCash) - cajaStats.expectedCash) < 0 ? '#dc2626' : '#16a34a' }}>
-                  {(Number(actualCash) - cajaStats.expectedCash) < 0 ? 'Faltan: ' : 'Sobran: '}${Math.abs(Number(actualCash) - cajaStats.expectedCash).toLocaleString('es-CO')}
+                <div style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', borderRadius: '8px', fontSize: '1rem',
+                  backgroundColor: (Number(actualCash) - cajaStats.expectedCash) < 0 ? '#fef2f2' : '#f0fdf4',
+                  color: (Number(actualCash) - cajaStats.expectedCash) < 0 ? '#dc2626' : '#16a34a' }}>
+                  {(Number(actualCash) - cajaStats.expectedCash) < 0 ? '⚠ Faltan: ' : '✅ Sobran: '}
+                  ${Math.abs(Number(actualCash) - cajaStats.expectedCash).toLocaleString('es-CO')}
+                  {(Number(actualCash) - cajaStats.expectedCash) === 0 && ' — Cuadra perfecto ✓'}
                 </div>
               )}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
@@ -551,6 +573,7 @@ export default function POS() {
           </div>
         </div>
       )}
+
 
       {/* ── Modal Registrar Gasto ── */}
       {showExpense && (

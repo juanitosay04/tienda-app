@@ -66,3 +66,12 @@ model FiadoTransaction {
   date        DateTime @default(now())
 }
 
+model StoreConfig {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String
+  label     String?
+  updatedAt DateTime @updatedAt
+}
+
+
