@@ -534,7 +534,7 @@ export default function CustomerDetail() {
             <form onSubmit={handleTransaction} style={{ padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', color: '#374151', marginBottom: '8px', textTransform: 'uppercase' }}>Monto ($) *</label>
-                <input ref={amountRef} required type="number" step="100" min="1" className="input" value={amount} onChange={e => setAmount(e.target.value)} onKeyDown={e => e.key === 'Escape' && setModal(null)} placeholder="Ej: 15000"
+                <input ref={amountRef} required type="number" step="1" min="1" className="input" value={amount} onChange={e => setAmount(e.target.value)} onKeyDown={e => e.key === 'Escape' && setModal(null)} placeholder="Ej: 15000"
                   style={{ fontSize: '1.6rem', fontWeight: '800', textAlign: 'center', borderRadius: '10px', border: `2px solid ${modal === 'FIADO' ? '#fca5a5' : '#86efac'}`, padding: '12px' }} />
               </div>
               <div>
