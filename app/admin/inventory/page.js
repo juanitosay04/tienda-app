@@ -40,8 +40,12 @@ export default function InventoryManager() {
   const categories = useMemo(() => ['Todas', ...new Set(products.map(p => p.category))].sort((a, b) => a === 'Todas' ? -1 : a.localeCompare(b)), [products]);
 
   const filtered = useMemo(() => products.filter(p => {
+    const searchWords = search.toLowerCase().trim().split(/\s+/);
+    const productName = p.name.toLowerCase();
+    const productCat = p.category.toLowerCase();
+    
     const matchCat = selectedCategory === 'Todas' || p.category === selectedCategory;
-    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.category.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = searchWords.every(word => productName.includes(word) || productCat.includes(word));
     return matchCat && matchSearch;
   }), [products, selectedCategory, search]);
 

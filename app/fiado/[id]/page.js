@@ -195,7 +195,9 @@ export default function CustomerDetail() {
   // Filtros mini-POS
   const categories = allProducts.length ? ['Todas', ...new Set(allProducts.map(p => p.category))] : [];
   const filteredProducts = allProducts.filter(p => {
-    const matchSearch = p.name.toLowerCase().includes(posSearch.toLowerCase());
+    const searchWords = posSearch.toLowerCase().trim().split(/\s+/);
+    const productName = p.name.toLowerCase();
+    const matchSearch = searchWords.every(word => productName.includes(word));
     const matchCat = posCategory === 'Todas' || p.category === posCategory;
     return matchSearch && matchCat && p.stock > 0;
   });

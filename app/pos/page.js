@@ -284,7 +284,9 @@ export default function POS() {
   // ── Filtros ──
   const categories = ['Todas', ...new Set(products.map(p => p.category))];
   const filteredProducts = products.filter(p => {
-    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
+    const searchWords = search.toLowerCase().trim().split(/\s+/);
+    const productName = p.name.toLowerCase();
+    const matchSearch = searchWords.every(word => productName.includes(word));
     const matchCat = selectedCategory === 'Todas' || p.category === selectedCategory;
     return matchSearch && matchCat;
   });
