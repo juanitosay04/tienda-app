@@ -51,6 +51,26 @@ export default function POS() {
     setTimeout(() => setStockWarning(''), 3000);
   };
 
+  // ── Cola de Tickets Pendientes ──
+  const [openTickets, setOpenTickets] = useState([]);
+  const [pendingNameModal, setPendingNameModal] = useState(false);
+  const [pendingName, setPendingName] = useState('');
+  const [pendingListModal, setPendingListModal] = useState(false);
+  const pendingInputRef = useRef(null);
+
+  // Cargar tickets de la cola al iniciar (desde localStorage)
+  useEffect(() => {
+    const saved = localStorage.getItem('tienda_open_tickets');
+    if (saved) {
+      try { setOpenTickets(JSON.parse(saved)); } catch (e) {}
+    }
+  }, []);
+
+  // Guardar en localStorage cada vez que cambia la cola
+  useEffect(() => {
+    localStorage.setItem('tienda_open_tickets', JSON.stringify(openTickets));
+  }, [openTickets]);
+
   useEffect(() => {
     fetch('/api/products?t=' + Date.now(), { cache: 'no-store' })
       .then(res => res.json())
@@ -147,18 +167,20 @@ export default function POS() {
     await procesarVenta(method);
   };
 
-  const procesarVenta = async (method) => {
+  const procesarVenta = async (paymentMethod) => {
+    if (cart.length === 0 || processing) return;
     setProcessing(true);
-    const items = cart.map(item => ({
-      productId: item.product.id,
-      quantity: item.quantity,
-      total: Math.round(item.product.price * item.quantity)
+
+    const items = cart.map(i => ({ 
+        productId: i.product.id, 
+        quantity: i.quantity,
+        total: Math.round(i.product.price * i.quantity)
     }));
 
     const res = await fetch('/api/transactions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'VENTA', items, paymentMethod: method })
+      body: JSON.stringify({ type: 'VENTA', items, paymentMethod })
     });
 
     if (res.ok) {
@@ -170,6 +192,40 @@ export default function POS() {
       alert('Error al registrar la venta');
     }
     setProcessing(false);
+  };
+
+  // ── Lógica de Tickets Pendientes ──
+  const handleSavePending = (e) => {
+    e.preventDefault();
+    if (!pendingName.trim() || cart.length === 0) return;
+    
+    const newTicket = {
+      id: Date.now().toString(),
+      name: pendingName.trim(),
+      cart: [...cart],
+      timestamp: new Date().toISOString()
+    };
+    
+    setOpenTickets([...openTickets, newTicket]);
+    setCart([]);
+    setPendingName('');
+    setPendingNameModal(false);
+  };
+
+  const handleLoadPending = (ticket) => {
+    if (cart.length > 0) {
+      if (!confirm('¿Seguro que quieres cargar este ticket? El carrito actual se borrará (guárdalo primero si lo necesitas).')) return;
+    }
+    setCart(ticket.cart);
+    setOpenTickets(openTickets.filter(t => t.id !== ticket.id));
+    setPendingListModal(false);
+  };
+
+  const handleDeletePending = (ticketId, e) => {
+    e.stopPropagation(); // Evitar que cargue el ticket al hacer clic en eliminar
+    if (confirm('¿Eliminar este ticket pendiente permanentemente?')) {
+      setOpenTickets(openTickets.filter(t => t.id !== ticketId));
+    }
   };
 
   // ── Miniarqueo (solo lectura) ──
@@ -243,6 +299,9 @@ export default function POS() {
         <div style={{ background: 'white', padding: '14px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
           <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a' }}>🛒 Terminal POS</h2>
           <div style={{ display: 'flex', gap: '8px' }}>
+            <button className="btn" onClick={() => setPendingListModal(true)} style={{ background: openTickets.length > 0 ? '#eff6ff' : '#f8fafc', color: openTickets.length > 0 ? '#2563eb' : '#64748b', border: `1px solid ${openTickets.length > 0 ? '#bfdbfe' : '#cbd5e1'}`, fontSize: '0.85rem', fontWeight: openTickets.length > 0 ? '700' : 'normal' }}>
+              📋 Pendientes {openTickets.length > 0 && `(${openTickets.length})`}
+            </button>
             <button className="btn" onClick={() => setShowExpense(true)} style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fca5a5', fontSize: '0.85rem' }}>💸 Gasto</button>
             <button className="btn" onClick={openMiniarqueo} style={{ background: '#fffbeb', color: '#d97706', border: '1px solid #fcd34d', fontSize: '0.85rem' }}>🔍 Miniarqueo</button>
             <button className="btn" onClick={openCierreCaja} style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5', fontSize: '0.85rem', fontWeight: '700' }}>🔒 Cerrar Día</button>
@@ -422,6 +481,16 @@ export default function POS() {
             <span style={{ color: 'var(--primary)' }}>${total.toLocaleString('es-CO')}</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={() => setPendingNameModal(true)} disabled={cart.length === 0}
+                style={{ flex: 1, padding: '10px', fontSize: '0.9rem', fontWeight: 'bold', borderRadius: '8px', border: '1px solid #94a3b8', cursor: cart.length === 0 ? 'not-allowed' : 'pointer', background: cart.length === 0 ? '#f8fafc' : 'white', color: cart.length === 0 ? '#94a3b8' : '#334155' }}>
+                🕒 Dejar Pendiente
+              </button>
+              <button onClick={() => setCart([])} disabled={cart.length === 0}
+                style={{ flex: 1, padding: '10px', fontSize: '0.9rem', fontWeight: 'bold', borderRadius: '8px', border: '1px solid #fca5a5', cursor: cart.length === 0 ? 'not-allowed' : 'pointer', background: cart.length === 0 ? '#fef2f2' : 'white', color: cart.length === 0 ? '#fca5a5' : '#ef4444' }}>
+                🗑 Limpiar
+              </button>
+            </div>
             <button onClick={() => handleCobrar('EFECTIVO')} disabled={processing || cart.length === 0}
               style={{ width: '100%', padding: '14px', fontSize: '1.1rem', fontWeight: 'bold', borderRadius: '8px', border: 'none', cursor: cart.length === 0 ? 'not-allowed' : 'pointer', background: cart.length === 0 ? '#cbd5e1' : '#10b981', color: 'white', boxShadow: cart.length === 0 ? 'none' : '0 4px 8px rgba(16,185,129,0.3)', transition: 'all 0.2s' }}>
               💵 COBRAR EN EFECTIVO
@@ -771,6 +840,73 @@ export default function POS() {
           </div>
         </div>
       )}
+
+      {/* ── Modal Nombrar Ticket Pendiente ── */}
+      {pendingNameModal && (
+        <div onClick={e => { if (e.target === e.currentTarget) setPendingNameModal(false); }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
+          <div style={{ background: 'white', padding: '24px', borderRadius: '14px', width: '100%', maxWidth: '350px', boxShadow: '0 25px 50px rgba(0,0,0,0.25)' }}>
+            <h3 style={{ margin: '0 0 16px', color: '#0f172a' }}>🕒 Guardar Ticket Pendiente</h3>
+            <form onSubmit={handleSavePending}>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: '#475569', marginBottom: '8px', fontWeight: '600' }}>Nombre o Referencia (ej. Mesa 3)</label>
+              <input
+                ref={pendingInputRef}
+                autoFocus
+                required
+                type="text"
+                className="input"
+                value={pendingName}
+                onChange={e => setPendingName(e.target.value)}
+                placeholder="Mesa 1, Juan..."
+              />
+              <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                <button type="button" onClick={() => setPendingNameModal(false)} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: 'white', fontWeight: '600', cursor: 'pointer', color: '#475569' }}>Cancelar</button>
+                <button type="submit" disabled={!pendingName.trim()} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', background: '#3b82f6', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>Guardar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Lista de Tickets Pendientes ── */}
+      {pendingListModal && (
+        <div onClick={e => { if (e.target === e.currentTarget) setPendingListModal(false); }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
+          <div style={{ background: 'white', padding: '24px', borderRadius: '16px', width: '100%', maxWidth: '450px', boxShadow: '0 25px 50px rgba(0,0,0,0.25)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h2 style={{ margin: 0, color: '#0f172a' }}>📋 Tickets Pendientes</h2>
+              <button onClick={() => setPendingListModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#94a3b8' }}>×</button>
+            </div>
+            
+            <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {openTickets.length === 0 ? (
+                <p style={{ textAlign: 'center', color: '#94a3b8', padding: '40px 0' }}>No hay tickets en cola.</p>
+              ) : (
+                openTickets.map(ticket => {
+                  const itemsCount = ticket.cart.reduce((s, i) => s + (isWeightProduct(i.product) ? 1 : i.quantity), 0);
+                  const ticketTotal = ticket.cart.reduce((s, i) => s + (i.product.price * i.quantity), 0);
+                  
+                  return (
+                    <div key={ticket.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
+                      <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => handleLoadPending(ticket)}>
+                        <h4 style={{ margin: '0 0 4px', color: '#1e293b', fontSize: '1rem' }}>{ticket.name}</h4>
+                        <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b' }}>
+                          {itemsCount} {itemsCount === 1 ? 'item' : 'items'} · <strong style={{ color: '#0f172a' }}>${Math.round(ticketTotal).toLocaleString('es-CO')}</strong>
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={(e) => handleDeletePending(ticket.id, e)} style={{ padding: '8px 12px', borderRadius: '8px', border: 'none', background: '#fee2e2', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold' }}>🗑</button>
+                        <button onClick={() => handleLoadPending(ticket)} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#3b82f6', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}>Cargar</button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
