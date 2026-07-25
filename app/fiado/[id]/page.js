@@ -31,6 +31,13 @@ export default function CustomerDetail() {
   const [weightModal, setWeightModal] = useState({ open: false, product: null, amount: '' });
   const weightRef = useRef(null);
 
+  // Alerta de stock insuficiente
+  const [stockWarning, setStockWarning] = useState('');
+  const showStockAlert = (msg) => {
+    setStockWarning(msg);
+    setTimeout(() => setStockWarning(''), 3000);
+  };
+
   // Tirilla de confirmación
   const [tiraModal, setTiraModal] = useState(false);
 
@@ -71,7 +78,17 @@ export default function CustomerDetail() {
   const addToCart = (product, qty = 1) => {
     setCart(prev => {
       const ex = prev.find(i => i.product.id === product.id);
-      if (ex) return prev.map(i => i.product.id === product.id ? { ...i, quantity: parseFloat((i.quantity + qty).toFixed(3)) } : i);
+      const currentQty = ex ? ex.quantity : 0;
+      const newQty = parseFloat((currentQty + qty).toFixed(3));
+
+      // Validar stock disponible
+      if (newQty > product.stock) {
+        const unit = isFruver(product) ? getUnit(product.name) : 'und';
+        showStockAlert(`⚠ Stock insuficiente: solo hay ${product.stock} ${unit} de "${product.name}"`);
+        return prev;
+      }
+
+      if (ex) return prev.map(i => i.product.id === product.id ? { ...i, quantity: newQty } : i);
       return [...prev, { product, quantity: qty }];
     });
   };
@@ -90,6 +107,16 @@ export default function CustomerDetail() {
   const confirmWeight = () => {
     const qty = parseFloat(weightModal.amount.replace(',', '.'));
     if (!qty || qty <= 0) return;
+
+    // Validar stock para fruver
+    const existing = cart.find(i => i.product.id === weightModal.product.id);
+    const currentQty = existing ? existing.quantity : 0;
+    if (currentQty + qty > weightModal.product.stock) {
+      const unit = getUnit(weightModal.product.name);
+      showStockAlert(`⚠ Stock insuficiente: solo hay ${weightModal.product.stock} ${unit} de "${weightModal.product.name}"`);
+      return;
+    }
+
     addToCart(weightModal.product, qty);
     setWeightModal({ open: false, product: null, amount: '' });
   };
@@ -292,7 +319,22 @@ export default function CustomerDetail() {
                 style={{ background: '#f1f5f9', border: 'none', borderRadius: '8px', width: '34px', height: '34px', cursor: 'pointer', color: '#475569', fontSize: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
             </div>
 
-            <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
+              {/* Toast alerta stock insuficiente */}
+              {stockWarning && (
+                <div style={{
+                  position: 'absolute', top: '10px', left: '50%', transform: 'translateX(-50%)',
+                  zIndex: 2000, background: '#1e293b', color: 'white',
+                  padding: '10px 20px', borderRadius: '8px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  fontSize: '0.85rem', fontWeight: '600',
+                  borderLeft: '4px solid #ef4444'
+                }}>
+                  <span>🚫</span> {stockWarning}
+                </div>
+              )}
+
               {/* ── Panel izquierdo: Productos ── */}
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: '1px solid #e2e8f0' }}>
                 {/* Buscador y categorías */}

@@ -91,7 +91,7 @@ export default function VentasHistory() {
   const monthTotal = byDay.reduce((s, d) => s + d.total, 0);
   const monthEfectivo = byDay.reduce((s, d) => s + d.efectivo, 0);
   const monthTransfer = byDay.reduce((s, d) => s + d.transferencia, 0);
-  const monthExpTotal = monthExp.reduce((s, e) => s + e.amount, 0);
+  const monthExpTotal = monthExp.filter(e => e.paymentMethod !== 'CAPITAL').reduce((s, e) => s + e.amount, 0);
   const bestDay = byDay.reduce((best, d) => (!best || d.total > best.total) ? d : best, null);
 
   // Meses disponibles (que tienen ventas)

@@ -29,8 +29,21 @@ export async function POST(request) {
         paymentMethod: paymentMethod || 'EFECTIVO'
       }
     });
+
+    // Si se pagó con capital de la empresa, descontarlo del capital inicial
+    if (paymentMethod === 'CAPITAL') {
+      const capitalConfig = await prisma.storeConfig.findUnique({ where: { key: 'capital_inicial' } });
+      if (capitalConfig) {
+        await prisma.storeConfig.update({
+          where: { key: 'capital_inicial' },
+          data: { value: String(Number(capitalConfig.value) - Number(amount)) }
+        });
+      }
+    }
+
     return Response.json({ success: true, record });
   } catch (error) {
+    console.error('Error creating expense:', error);
     return Response.json({ error: 'Error creating expense' }, { status: 500 });
   }
 }

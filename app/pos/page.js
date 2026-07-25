@@ -44,6 +44,13 @@ export default function POS() {
   const [showExpense, setShowExpense] = useState(false);
   const [expenseForm, setExpenseForm] = useState({ description: '', amount: '', paymentMethod: 'EFECTIVO' });
 
+  // Alerta de stock insuficiente
+  const [stockWarning, setStockWarning] = useState('');
+  const showStockAlert = (msg) => {
+    setStockWarning(msg);
+    setTimeout(() => setStockWarning(''), 3000);
+  };
+
   useEffect(() => {
     fetch('/api/products?t=' + Date.now(), { cache: 'no-store' })
       .then(res => res.json())
@@ -68,10 +75,20 @@ export default function POS() {
 
   const addToCart = (product, qty = 1) => {
     const existing = cart.find(item => item.product.id === product.id);
+    const currentQty = existing ? existing.quantity : 0;
+    const newQty = parseFloat((currentQty + qty).toFixed(3));
+
+    // Validar stock disponible
+    if (newQty > product.stock) {
+      const unit = isWeightProduct(product) ? getUnit(product.name) : 'und';
+      showStockAlert(`⚠ Stock insuficiente: solo hay ${product.stock} ${unit} de "${product.name}"`);
+      return;
+    }
+
     if (existing) {
       setCart(cart.map(item =>
         item.product.id === product.id
-          ? { ...item, quantity: parseFloat((item.quantity + qty).toFixed(3)) }
+          ? { ...item, quantity: newQty }
           : item
       ));
     } else {
@@ -82,6 +99,16 @@ export default function POS() {
   const confirmWeightAdd = () => {
     const qty = parseFloat(weightModal.amount.replace(',', '.'));
     if (!qty || qty <= 0) return;
+
+    // Validar stock para fruver
+    const existing = cart.find(i => i.product.id === weightModal.product.id);
+    const currentQty = existing ? existing.quantity : 0;
+    if (currentQty + qty > weightModal.product.stock) {
+      const unit = getUnit(weightModal.product.name);
+      showStockAlert(`⚠ Stock insuficiente: solo hay ${weightModal.product.stock} ${unit} de "${weightModal.product.name}"`);
+      return;
+    }
+
     addToCart(weightModal.product, qty);
     setWeightModal({ open: false, product: null, amount: '' });
   };
@@ -248,6 +275,23 @@ export default function POS() {
             ))}
           </div>
         </div>
+
+        {/* Toast alerta stock insuficiente */}
+        {stockWarning && (
+          <div style={{
+            position: 'fixed', top: '16px', left: '50%', transform: 'translateX(-50%)',
+            zIndex: 2000, background: '#1e293b', color: 'white',
+            padding: '12px 22px', borderRadius: '10px',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+            display: 'flex', alignItems: 'center', gap: '10px',
+            fontSize: '0.9rem', fontWeight: '600', fontFamily: 'inherit',
+            animation: 'fadeIn 0.2s ease',
+            borderLeft: '4px solid #ef4444'
+          }}>
+            <span style={{ fontSize: '1.1rem' }}>🚫</span>
+            {stockWarning}
+          </div>
+        )}
 
         {/* Grilla de Productos */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
@@ -716,6 +760,7 @@ export default function POS() {
                 <select className="input" value={expenseForm.paymentMethod} onChange={e => setExpenseForm({ ...expenseForm, paymentMethod: e.target.value })}>
                   <option value="EFECTIVO">💵 Efectivo (Sale de la Caja)</option>
                   <option value="TRANSFERENCIA">📱 Transferencia (Nequi/Banco)</option>
+                  <option value="CAPITAL">🏢 Capital de la Empresa</option>
                 </select>
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
