@@ -65,8 +65,9 @@ export default function AdminDashboard() {
     <div className="animate-fade-in" style={{ padding: '30px', maxWidth: '1200px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
         <h1>Panel de Administración</h1>
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <button className="btn btn-primary" onClick={() => router.push('/admin/ventas')}>📈 Historial de Ventas</button>
+          <button className="btn btn-primary" onClick={() => router.push('/admin/gastos')} style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5' }}>💸 Historial de Gastos</button>
           <button className="btn btn-primary" onClick={() => router.push('/admin/inventory')}>📦 Gestor de Inventario</button>
           <button className="btn" onClick={() => router.push('/')} style={{ background: 'var(--bg-panel)', color: 'var(--text-main)', border: '1px solid var(--border-color)' }}>Cerrar Sesión</button>
         </div>
