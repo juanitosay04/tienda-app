@@ -50,8 +50,7 @@ export async function GET(request) {
   try {
     const txs = await prisma.transaction.findMany({
       include: { product: true },
-      orderBy: { date: 'desc' },
-      take: 50
+      orderBy: { date: 'desc' }
     })
     return Response.json(txs)
   } catch (error) {

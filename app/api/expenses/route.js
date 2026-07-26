@@ -6,9 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   try {
-    const today = new Date(new Date().setHours(0,0,0,0));
     const expenses = await prisma.expense.findMany({
-      where: { date: { gte: today } },
       orderBy: { date: 'desc' }
     });
     return Response.json(expenses);
