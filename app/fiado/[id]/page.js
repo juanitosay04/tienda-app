@@ -161,6 +161,12 @@ export default function CustomerDetail() {
     e.preventDefault();
     const val = parseFloat(amount.replace(',', '.'));
     if (!val || val <= 0) return;
+    
+    if (modal === 'ABONO' && val > customer.balance) {
+      alert(`No puedes abonar más de la deuda actual ($${customer.balance.toLocaleString('es-CO')})`);
+      return;
+    }
+
     setSaving(true);
     const res = await fetch('/api/fiado', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },

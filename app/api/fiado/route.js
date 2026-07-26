@@ -15,6 +15,16 @@ export async function POST(request) {
       return Response.json({ error: 'Tipo inválido' }, { status: 400 });
     }
 
+    if (type === 'ABONO') {
+      const txs = await prisma.fiadoTransaction.findMany({ where: { customerId: Number(customerId) } });
+      const totalFiado = txs.filter(t => t.type === 'FIADO').reduce((s, t) => s + t.amount, 0);
+      const totalAbono = txs.filter(t => t.type === 'ABONO').reduce((s, t) => s + t.amount, 0);
+      const balance = totalFiado - totalAbono;
+      if (Number(amount) > balance) {
+        return Response.json({ error: `El abono ($${Number(amount)}) no puede ser mayor que la deuda actual ($${balance}).` }, { status: 400 });
+      }
+    }
+
     // Crear la transacción de fiado
     const tx = await prisma.fiadoTransaction.create({
       data: {
