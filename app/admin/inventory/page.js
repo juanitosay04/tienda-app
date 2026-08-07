@@ -22,6 +22,8 @@ export default function InventoryManager() {
   const [deleting, setDeleting] = useState(null);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todas');
+  const [stockFilter, setStockFilter] = useState('all'); // 'all' | 'zero' | 'low'
+  const [copiedList, setCopiedList] = useState(false);
 
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -37,6 +39,9 @@ export default function InventoryManager() {
     setLoading(false);
   };
 
+  const zeroStockProducts = useMemo(() => products.filter(p => Number(p.stock) <= 0), [products]);
+  const lowStockProducts = useMemo(() => products.filter(p => Number(p.stock) > 0 && Number(p.stock) <= Number(p.minStock)), [products]);
+
   const categories = useMemo(() => ['Todas', ...new Set(products.map(p => p.category))].sort((a, b) => a === 'Todas' ? -1 : a.localeCompare(b)), [products]);
 
   const filtered = useMemo(() => products.filter(p => {
@@ -44,10 +49,17 @@ export default function InventoryManager() {
     const productName = p.name.toLowerCase();
     const productCat = p.category.toLowerCase();
     
+    // Filtro por estado de Stock
+    if (stockFilter === 'zero' && Number(p.stock) > 0) return false;
+    if (stockFilter === 'low' && (Number(p.stock) <= 0 || Number(p.stock) > Number(p.minStock))) return false;
+
+    // Filtro por categoría
     const matchCat = selectedCategory === 'Todas' || p.category === selectedCategory;
+    
+    // Filtro por texto
     const matchSearch = searchWords.every(word => productName.includes(word) || productCat.includes(word));
     return matchCat && matchSearch;
-  }), [products, selectedCategory, search]);
+  }), [products, selectedCategory, search, stockFilter]);
 
   const openAdd = () => {
     setEditingId(null);
@@ -97,63 +109,131 @@ export default function InventoryManager() {
     setDeleting(null);
   };
 
-  const lowStockCount = products.filter(p => p.stock <= p.minStock).length;
+  const copyZeroStockList = () => {
+    if (zeroStockProducts.length === 0) return;
+    const text = `📋 *PRODUCTOS AGOTADOS - TIENDA DONDE JUANCHO*\n\n` +
+      zeroStockProducts.map((p, i) => `${i + 1}. ${p.name} (${p.category}) - Stock actual: ${p.stock}`).join('\n');
+    navigator.clipboard.writeText(text);
+    setCopiedList(true);
+    setTimeout(() => setCopiedList(false), 2500);
+  };
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#f8fafc', fontFamily: "'Outfit', sans-serif" }}>
 
-      {/* ── Sidebar de Categorías ── */}
-      <div style={{ width: '220px', background: 'white', borderRight: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-        <div style={{ padding: '24px 20px 16px', borderBottom: '1px solid #e2e8f0' }}>
-          <button onClick={() => router.push('/admin')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: '0.85rem', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '16px', fontFamily: 'inherit' }}>
+      {/* ── Sidebar ── */}
+      <div style={{ width: '240px', background: 'white', borderRight: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+        <div style={{ padding: '20px 18px 14px', borderBottom: '1px solid #e2e8f0' }}>
+          <button onClick={() => router.push('/admin')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: '0.85rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px', fontFamily: 'inherit' }}>
             ← Volver al Panel
           </button>
-          <h2 style={{ fontSize: '1rem', fontWeight: '700', color: '#0f172a', margin: 0 }}>Inventario</h2>
-          <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '4px 0 0' }}>{products.length} productos</p>
+          <h2 style={{ fontSize: '1rem', fontWeight: '800', color: '#0f172a', margin: 0 }}>🏪 Inventario</h2>
+          <p style={{ fontSize: '0.78rem', color: '#64748b', margin: '2px 0 0' }}>Tienda Donde Juancho</p>
+        </div>
+
+        {/* Filtros rápidos de Stock */}
+        <div style={{ padding: '12px 14px', borderBottom: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div style={{ fontSize: '0.72rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>
+            Estado de Stock
+          </div>
+
+          <button onClick={() => setStockFilter('all')} style={{
+            width: '100%', padding: '8px 12px', borderRadius: '8px', border: 'none',
+            background: stockFilter === 'all' ? '#eff6ff' : 'transparent',
+            color: stockFilter === 'all' ? '#1d4ed8' : '#475569',
+            fontWeight: stockFilter === 'all' ? '700' : '500',
+            cursor: 'pointer', textAlign: 'left', fontSize: '0.85rem',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'all 0.15s'
+          }}>
+            <span>📦 Todos los productos</span>
+            <span style={{ fontSize: '0.75rem', background: stockFilter === 'all' ? '#dbeafe' : '#f1f5f9', color: stockFilter === 'all' ? '#1d4ed8' : '#64748b', padding: '2px 7px', borderRadius: '10px', fontWeight: '700' }}>
+              {products.length}
+            </span>
+          </button>
+
+          <button onClick={() => setStockFilter('zero')} style={{
+            width: '100%', padding: '8px 12px', borderRadius: '8px', border: 'none',
+            background: stockFilter === 'zero' ? '#fef2f2' : (zeroStockProducts.length > 0 ? '#fff1f2' : 'transparent'),
+            color: stockFilter === 'zero' ? '#b91c1c' : (zeroStockProducts.length > 0 ? '#dc2626' : '#64748b'),
+            fontWeight: stockFilter === 'zero' ? '800' : '600',
+            cursor: 'pointer', textAlign: 'left', fontSize: '0.85rem',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'all 0.15s',
+            boxShadow: stockFilter === 'zero' ? 'inset 0 0 0 1.5px #f87171' : 'none'
+          }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>🔴</span>
+              <span>Sin Stock (0)</span>
+            </span>
+            <span style={{ fontSize: '0.75rem', background: stockFilter === 'zero' ? '#dc2626' : '#fee2e2', color: stockFilter === 'zero' ? 'white' : '#b91c1c', padding: '2px 7px', borderRadius: '10px', fontWeight: '800' }}>
+              {zeroStockProducts.length}
+            </span>
+          </button>
+
+          <button onClick={() => setStockFilter('low')} style={{
+            width: '100%', padding: '8px 12px', borderRadius: '8px', border: 'none',
+            background: stockFilter === 'low' ? '#fefce8' : 'transparent',
+            color: stockFilter === 'low' ? '#854d0e' : '#64748b',
+            fontWeight: stockFilter === 'low' ? '700' : '500',
+            cursor: 'pointer', textAlign: 'left', fontSize: '0.85rem',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'all 0.15s'
+          }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>⚠️</span>
+              <span>Stock Bajo</span>
+            </span>
+            <span style={{ fontSize: '0.75rem', background: stockFilter === 'low' ? '#fef08a' : '#f1f5f9', color: stockFilter === 'low' ? '#854d0e' : '#64748b', padding: '2px 7px', borderRadius: '10px', fontWeight: '700' }}>
+              {lowStockProducts.length}
+            </span>
+          </button>
         </div>
 
         {/* Categorías */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '12px 0' }}>
+          <div style={{ padding: '0 18px 6px', fontSize: '0.72rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Categorías
+          </div>
           {categories.map(cat => {
-            const count = cat === 'Todas' ? products.length : products.filter(p => p.category === cat).length;
+            const count = cat === 'Todas' 
+              ? products.length 
+              : products.filter(p => p.category === cat).length;
             const isActive = selectedCategory === cat;
             return (
               <button key={cat} onClick={() => setSelectedCategory(cat)} style={{
-                width: '100%', padding: '10px 20px', border: 'none', background: isActive ? '#eff6ff' : 'transparent',
+                width: '100%', padding: '9px 18px', border: 'none', background: isActive ? '#f1f5f9' : 'transparent',
                 borderRight: isActive ? '3px solid #3b82f6' : '3px solid transparent',
-                color: isActive ? '#1d4ed8' : '#475569', cursor: 'pointer', textAlign: 'left',
-                fontSize: '0.9rem', fontWeight: isActive ? '600' : '400', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                color: isActive ? '#0f172a' : '#475569', cursor: 'pointer', textAlign: 'left',
+                fontSize: '0.88rem', fontWeight: isActive ? '700' : '400', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 transition: 'all 0.15s', fontFamily: 'inherit'
               }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   {cat !== 'Todas' && <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: getCategoryColor(cat), flexShrink: 0 }} />}
                   {cat}
                 </span>
-                <span style={{ fontSize: '0.75rem', background: isActive ? '#dbeafe' : '#f1f5f9', color: isActive ? '#1d4ed8' : '#94a3b8', padding: '2px 7px', borderRadius: '10px', fontWeight: '600' }}>{count}</span>
+                <span style={{ fontSize: '0.72rem', background: isActive ? '#cbd5e1' : '#f8fafc', color: isActive ? '#0f172a' : '#94a3b8', padding: '2px 6px', borderRadius: '8px', fontWeight: '600' }}>{count}</span>
               </button>
             );
           })}
         </div>
-
-        {/* Alertas stock bajo */}
-        {lowStockCount > 0 && (
-          <div style={{ padding: '16px 20px', borderTop: '1px solid #e2e8f0', background: '#fef2f2' }}>
-            <p style={{ fontSize: '0.8rem', fontWeight: '600', color: '#dc2626', margin: 0 }}>⚠ {lowStockCount} productos con stock bajo</p>
-          </div>
-        )}
       </div>
 
       {/* ── Panel principal ── */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* Header */}
-        <div style={{ background: 'white', padding: '16px 28px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1 }}>
-            <h1 style={{ fontSize: '1.2rem', fontWeight: '700', color: '#0f172a', margin: 0, whiteSpace: 'nowrap' }}>
-              {selectedCategory === 'Todas' ? 'Todos los Productos' : selectedCategory}
+        <div style={{ background: 'white', padding: '16px 28px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1 }}>
+            <h1 style={{ fontSize: '1.2rem', fontWeight: '800', color: stockFilter === 'zero' ? '#dc2626' : '#0f172a', margin: 0, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {stockFilter === 'zero' ? (
+                <><span>🔴</span> Productos Sin Stock (Agotados)</>
+              ) : stockFilter === 'low' ? (
+                <><span>⚠️</span> Productos con Stock Bajo</>
+              ) : (
+                selectedCategory === 'Todas' ? 'Todos los Productos' : selectedCategory
+              )}
             </h1>
+
             {/* Buscador */}
-            <div style={{ position: 'relative', maxWidth: '380px', width: '100%' }}>
+            <div style={{ position: 'relative', maxWidth: '340px', width: '100%' }}>
               <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '0.9rem' }}>🔍</span>
               <input
                 className="input"
@@ -165,25 +245,60 @@ export default function InventoryManager() {
               />
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '10px', flexShrink: 0 }}>
-            <button onClick={() => window.print()} className="no-print" style={{ padding: '9px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', color: '#475569', cursor: 'pointer', fontWeight: '500', fontSize: '0.9rem', fontFamily: 'inherit' }}>
+
+          <div style={{ display: 'flex', gap: '8px', flexShrink: 0, alignItems: 'center' }}>
+            {stockFilter === 'zero' && zeroStockProducts.length > 0 && (
+              <button onClick={copyZeroStockList} style={{ padding: '9px 14px', borderRadius: '8px', border: '1px solid #fecaca', background: copiedList ? '#10b981' : '#fef2f2', color: copiedList ? 'white' : '#b91c1c', cursor: 'pointer', fontWeight: '700', fontSize: '0.85rem', fontFamily: 'inherit', transition: 'all 0.2s' }}>
+                {copiedList ? '✓ Copiado al portapapeles' : '📋 Copiar Lista Agotados'}
+              </button>
+            )}
+
+            <button onClick={() => window.print()} className="no-print" style={{ padding: '9px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', color: '#475569', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem', fontFamily: 'inherit' }}>
               🖨️ Imprimir
             </button>
-            <button onClick={openAdd} style={{ padding: '9px 20px', borderRadius: '8px', border: 'none', background: '#3b82f6', color: 'white', cursor: 'pointer', fontWeight: '600', fontSize: '0.9rem', fontFamily: 'inherit' }}>
+            <button onClick={openAdd} style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: '#3b82f6', color: 'white', cursor: 'pointer', fontWeight: '700', fontSize: '0.88rem', fontFamily: 'inherit', boxShadow: '0 2px 6px rgba(59,130,246,0.3)' }}>
               + Nuevo Producto
             </button>
           </div>
         </div>
+
+        {/* Barra de Filtro Activo Banner */}
+        {stockFilter === 'zero' && (
+          <div style={{ padding: '10px 28px', background: '#fef2f2', borderBottom: '1px solid #fee2e2', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.85rem', color: '#991b1b', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              🚨 Mostrando únicamente productos agotados con stock en 0.
+            </span>
+            <button onClick={() => setStockFilter('all')} style={{ background: 'none', border: 'none', color: '#dc2626', fontWeight: '700', cursor: 'pointer', fontSize: '0.82rem', textDecoration: 'underline' }}>
+              Ver todos los productos
+            </button>
+          </div>
+        )}
 
         {/* Tabla de productos */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px', color: '#94a3b8' }}>Cargando inventario...</div>
           ) : filtered.length === 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '300px', color: '#94a3b8', gap: '12px' }}>
-              <span style={{ fontSize: '2.5rem' }}>📦</span>
-              <p style={{ fontWeight: '500' }}>{search ? 'No se encontraron productos' : 'No hay productos en esta categoría'}</p>
-              <button onClick={openAdd} style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#3b82f6', color: 'white', cursor: 'pointer', fontWeight: '600', fontFamily: 'inherit' }}>+ Agregar producto</button>
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '320px', color: '#64748b', gap: '12px', padding: '20px' }}>
+              <span style={{ fontSize: '3rem' }}>
+                {stockFilter === 'zero' ? '🎉' : '📦'}
+              </span>
+              <p style={{ fontWeight: '700', fontSize: '1.05rem', color: '#0f172a', margin: 0 }}>
+                {stockFilter === 'zero' 
+                  ? '¡Excelente! No hay ningún producto sin stock actualmente.' 
+                  : search 
+                    ? 'No se encontraron productos coincidentes' 
+                    : 'No hay productos en esta selección'}
+              </p>
+              {stockFilter === 'zero' ? (
+                <button onClick={() => setStockFilter('all')} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid #cbd5e1', background: 'white', color: '#334155', cursor: 'pointer', fontWeight: '600', fontFamily: 'inherit' }}>
+                  Volver al listado general
+                </button>
+              ) : (
+                <button onClick={openAdd} style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#3b82f6', color: 'white', cursor: 'pointer', fontWeight: '600', fontFamily: 'inherit' }}>
+                  + Agregar producto
+                </button>
+              )}
             </div>
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -199,13 +314,19 @@ export default function InventoryManager() {
               </thead>
               <tbody>
                 {filtered.map((p, i) => {
-                  const isLow = p.stock <= p.minStock;
+                  const isZero = Number(p.stock) <= 0;
+                  const isLow = !isZero && Number(p.stock) <= Number(p.minStock);
                   const isDel = deleting === p.id;
                   return (
-                    <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9', background: isDel ? '#fff5f5' : (i % 2 === 0 ? 'white' : '#fafafa'), opacity: isDel ? 0.5 : 1, transition: 'all 0.2s' }}
-                      onMouseEnter={e => { if (!isDel) e.currentTarget.style.background = '#eff6ff'; }}
-                      onMouseLeave={e => { if (!isDel) e.currentTarget.style.background = i % 2 === 0 ? 'white' : '#fafafa'; }}>
-                      <td style={{ padding: '13px 28px', fontWeight: '500', color: '#0f172a', fontSize: '0.9rem' }}>{p.name}</td>
+                    <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9', background: isDel ? '#fff5f5' : isZero ? '#fff1f2' : (i % 2 === 0 ? 'white' : '#fafafa'), opacity: isDel ? 0.5 : 1, transition: 'all 0.2s' }}
+                      onMouseEnter={e => { if (!isDel) e.currentTarget.style.background = isZero ? '#fee2e2' : '#eff6ff'; }}
+                      onMouseLeave={e => { if (!isDel) e.currentTarget.style.background = isZero ? '#fff1f2' : (i % 2 === 0 ? 'white' : '#fafafa'); }}>
+                      <td style={{ padding: '13px 28px', fontWeight: '600', color: '#0f172a', fontSize: '0.9rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {isZero && <span style={{ color: '#dc2626', fontSize: '1rem' }} title="Sin Stock">🚫</span>}
+                          {p.name}
+                        </div>
+                      </td>
                       <td style={{ padding: '13px 16px' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '3px 10px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600', background: getCategoryColor(p.category) + '18', color: getCategoryColor(p.category) }}>
                           <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: getCategoryColor(p.category) }} />
@@ -214,18 +335,30 @@ export default function InventoryManager() {
                       </td>
                       <td style={{ padding: '13px 16px', textAlign: 'right', fontWeight: '700', color: '#1e293b', fontSize: '0.95rem' }}>${Number(p.price).toLocaleString('es-CO')}</td>
                       <td style={{ padding: '13px 16px', textAlign: 'center' }}>
-                        <span style={{ display: 'inline-block', padding: '3px 12px', borderRadius: '6px', fontWeight: '700', fontSize: '0.9rem', background: isLow ? '#fef2f2' : '#f0fdf4', color: isLow ? '#dc2626' : '#16a34a' }}>
-                          {p.stock} {isLow && '⚠'}
-                        </span>
+                        {isZero ? (
+                          <span style={{ display: 'inline-block', padding: '4px 10px', borderRadius: '6px', fontWeight: '800', fontSize: '0.82rem', background: '#dc2626', color: 'white' }}>
+                            0 · AGOTADO
+                          </span>
+                        ) : (
+                          <span style={{ display: 'inline-block', padding: '3px 12px', borderRadius: '6px', fontWeight: '700', fontSize: '0.9rem', background: isLow ? '#fef3c7' : '#f0fdf4', color: isLow ? '#b45309' : '#16a34a' }}>
+                            {p.stock} {isLow && '⚠️'}
+                          </span>
+                        )}
                       </td>
                       <td style={{ padding: '13px 16px', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem', fontWeight: '500' }}>{p.minStock}</td>
                       <td className="no-print" style={{ padding: '13px 28px', textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                           <button onClick={() => openEdit(p)} disabled={isDel}
-                            style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #e2e8f0', background: 'white', color: '#3b82f6', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem', fontFamily: 'inherit', transition: 'all 0.15s' }}
-                            onMouseEnter={e => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#3b82f6'; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = '#e2e8f0'; }}>
-                            ✏️ Editar
+                            style={{
+                              padding: '6px 14px', borderRadius: '6px',
+                              border: isZero ? '1px solid #f87171' : '1px solid #e2e8f0',
+                              background: isZero ? '#fee2e2' : 'white',
+                              color: isZero ? '#991b1b' : '#3b82f6',
+                              cursor: 'pointer', fontWeight: '700', fontSize: '0.85rem', fontFamily: 'inherit', transition: 'all 0.15s'
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.background = isZero ? '#fecaca' : '#eff6ff'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = isZero ? '#fee2e2' : 'white'; }}>
+                            {isZero ? '⚡ Reabastecer' : '✏️ Editar'}
                           </button>
                           <button onClick={() => handleDelete(p.id, p.name)} disabled={isDel}
                             style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #fca5a5', background: '#fff5f5', color: '#dc2626', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem', fontFamily: 'inherit', transition: 'all 0.15s' }}
@@ -244,9 +377,24 @@ export default function InventoryManager() {
         </div>
 
         {/* Footer con conteo */}
-        <div style={{ padding: '10px 28px', background: 'white', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Mostrando {filtered.length} de {products.length} productos</span>
-          {lowStockCount > 0 && <span style={{ fontSize: '0.8rem', color: '#dc2626', fontWeight: '600' }}>⚠ {lowStockCount} con stock bajo</span>}
+        <div style={{ padding: '12px 28px', background: 'white', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: '500' }}>
+            {stockFilter === 'zero' 
+              ? `🔴 Mostrando ${filtered.length} productos sin stock de un total de ${products.length}`
+              : `Mostrando ${filtered.length} de ${products.length} productos`}
+          </span>
+          <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+            {zeroStockProducts.length > 0 && (
+              <span style={{ fontSize: '0.85rem', color: '#dc2626', fontWeight: '700' }}>
+                🔴 {zeroStockProducts.length} agotados
+              </span>
+            )}
+            {lowStockProducts.length > 0 && (
+              <span style={{ fontSize: '0.85rem', color: '#d97706', fontWeight: '600' }}>
+                ⚠️ {lowStockProducts.length} stock bajo
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -258,7 +406,7 @@ export default function InventoryManager() {
             <div style={{ padding: '24px 28px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '700', color: '#0f172a' }}>{editingId ? 'Editar Producto' : 'Nuevo Producto'}</h2>
-                <p style={{ margin: '3px 0 0', fontSize: '0.8rem', color: '#94a3b8' }}>{editingId ? 'Modifica los datos del producto' : 'Agrega un nuevo producto al inventario'}</p>
+                <p style={{ margin: '3px 0 0', fontSize: '0.8rem', color: '#94a3b8' }}>{editingId ? 'Modifica los datos o reabastece el stock' : 'Agrega un nuevo producto al inventario'}</p>
               </div>
               <button onClick={() => setShowModal(false)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '8px', width: '32px', height: '32px', cursor: 'pointer', fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>×</button>
             </div>
@@ -267,7 +415,7 @@ export default function InventoryManager() {
             <form onSubmit={handleSubmit} style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#374151', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Nombre del Producto *</label>
-                <input autoFocus required className="input" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="Ej: Leche Entera 1L" style={{ borderRadius: '8px', border: '1.5px solid #e2e8f0', fontSize: '0.95rem' }} />
+                <input required className="input" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="Ej: Leche Entera 1L" style={{ borderRadius: '8px', border: '1.5px solid #e2e8f0', fontSize: '0.95rem' }} />
               </div>
 
               <div>
@@ -283,7 +431,7 @@ export default function InventoryManager() {
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#374151', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Stock *</label>
-                  <input required type="number" min="0" className="input" value={formData.stock} onChange={e => setFormData({ ...formData, stock: e.target.value })} placeholder="0" style={{ borderRadius: '8px', border: '1.5px solid #e2e8f0', fontWeight: '700', fontSize: '1rem' }} />
+                  <input autoFocus={editingId ? true : false} required type="number" min="0" className="input" value={formData.stock} onChange={e => setFormData({ ...formData, stock: e.target.value })} placeholder="0" style={{ borderRadius: '8px', border: '1.5px solid #e2e8f0', fontWeight: '700', fontSize: '1rem', background: Number(formData.stock) <= 0 ? '#fef2f2' : 'white', color: Number(formData.stock) <= 0 ? '#dc2626' : '#0f172a' }} />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#374151', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mín.</label>
@@ -305,3 +453,4 @@ export default function InventoryManager() {
     </div>
   );
 }
+
