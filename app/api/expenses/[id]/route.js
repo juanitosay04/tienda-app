@@ -1,9 +1,9 @@
-import { PrismaClient } from '@prisma/client'
+import prisma from '../../../../lib/prisma';
 
-const prisma = new PrismaClient()
+export const dynamic = 'force-dynamic';
 
 export async function DELETE(request, { params }) {
-  const { id } = params;
+  const { id } = await params;
   try {
     const expense = await prisma.expense.findUnique({ where: { id } });
     if (!expense) return Response.json({ error: 'Gasto no encontrado' }, { status: 404 });

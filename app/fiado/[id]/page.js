@@ -20,22 +20,34 @@ export default function CustomerDetail() {
   const [modal, setModal] = useState(null); // null | 'FIADO' | 'ABONO'
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('EFECTIVO'); // 'EFECTIVO' | 'TRANSFERENCIA'
   const amountRef = useRef(null);
 
-  // Mini-POS para fiado con productos
-  const [posModal, setPosModal] = useState(false);
-  const [allProducts, setAllProducts] = useState([]);
-  const [posSearch, setPosSearch] = useState('');
-  const [posCategory, setPosCategory] = useState('Todas');
-  const [cart, setCart] = useState([]);
-  const [weightModal, setWeightModal] = useState({ open: false, product: null, amount: '' });
-  const weightRef = useRef(null);
+  // Alerta de WhatsApp / éxito
+  const [lastAbonoReceipt, setLastAbonoReceipt] = useState(null);
 
-  // Alerta de stock insuficiente
-  const [stockWarning, setStockWarning] = useState('');
-  const showStockAlert = (msg) => {
-    setStockWarning(msg);
-    setTimeout(() => setStockWarning(''), 3000);
+  // Helper para limpiar teléfono para WhatsApp
+  const cleanPhone = (phone) => {
+    if (!phone) return '';
+    let p = phone.replace(/[^0-9]/g, '');
+    if (p.length === 10 && p.startsWith('3')) p = '57' + p; // Colombia default
+    return p;
+  };
+
+  const sendWhatsAppReceipt = (abonoAmount, method, newBalance) => {
+    const phone = cleanPhone(customer?.phone);
+    const methodStr = method === 'TRANSFERENCIA' ? '📱 Transferencia / Nequi' : '💵 Efectivo';
+    const text = `Hola ${customer?.name}, te confirmamos que registramos tu abono de $${Number(abonoAmount).toLocaleString('es-CO')} recibido por ${methodStr}.\n\nTu saldo pendiente actual es: *$${Number(newBalance).toLocaleString('es-CO')}*.\n\n¡Muchas gracias por tu pago! 🙏`;
+    const url = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(text)}` : `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
+
+  const sendWhatsAppReminder = () => {
+    if (!customer || customer.balance <= 0) return;
+    const phone = cleanPhone(customer.phone);
+    const text = `Hola ${customer.name}, te recordamos que tienes un saldo pendiente de *$${customer.balance.toLocaleString('es-CO')}* en la tienda.\n\nCualquier duda o abono estamos atentos. ¡Muchas gracias!`;
+    const url = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(text)}` : `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
   };
 
   // Tirilla de confirmación
@@ -169,11 +181,34 @@ export default function CustomerDetail() {
 
     setSaving(true);
     const res = await fetch('/api/fiado', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ customerId: id, type: modal, amount: val, description })
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customerId: id,
+        type: modal,
+        amount: val,
+        description,
+        paymentMethod: modal === 'ABONO' ? paymentMethod : null
+      })
     });
-    if (res.ok) { setModal(null); await fetchCustomer(); }
-    else { const d = await res.json(); alert('Error: ' + (d.error || 'No se pudo guardar')); }
+    if (res.ok) {
+      const savedTx = await res.json();
+      const currentBal = customer.balance;
+      const newBal = Math.max(0, currentBal - val);
+      setModal(null);
+      if (modal === 'ABONO') {
+        setLastAbonoReceipt({
+          amount: val,
+          paymentMethod,
+          newBalance: newBal,
+          date: new Date()
+        });
+      }
+      await fetchCustomer();
+    } else {
+      const d = await res.json();
+      alert('Error: ' + (d.error || 'No se pudo guardar'));
+    }
     setSaving(false);
   };
 
@@ -230,10 +265,36 @@ export default function CustomerDetail() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
+            {balance > 0 && (
+              <button onClick={sendWhatsAppReminder} style={{ padding: '7px 12px', borderRadius: '8px', border: '1px solid #86efac', background: '#f0fdf4', color: '#16a34a', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                📲 Cobro WhatsApp
+              </button>
+            )}
             <button onClick={() => setEditModal(true)} style={{ padding: '7px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', color: '#475569', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.82rem' }}>✏️ Editar</button>
             <button onClick={handleDeleteCustomer} style={{ padding: '7px 12px', borderRadius: '8px', border: '1px solid #fca5a5', background: '#fff5f5', color: '#dc2626', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.82rem' }}>🗑 Eliminar</button>
           </div>
         </div>
+
+        {/* Banner Recibo Abono Reciente */}
+        {lastAbonoReceipt && (
+          <div style={{ marginTop: '12px', padding: '12px 16px', borderRadius: '10px', background: '#ecfdf5', border: '1px solid #a7f3d0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            <div>
+              <div style={{ fontWeight: '700', color: '#065f46', fontSize: '0.9rem' }}>
+                ✅ Abono registrado: ${lastAbonoReceipt.amount.toLocaleString('es-CO')} ({lastAbonoReceipt.paymentMethod === 'TRANSFERENCIA' ? '📱 Nequi / Transf.' : '💵 Efectivo'})
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#047857' }}>
+                Nuevo saldo pendiente: <strong>${lastAbonoReceipt.newBalance.toLocaleString('es-CO')}</strong>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button onClick={() => sendWhatsAppReceipt(lastAbonoReceipt.amount, lastAbonoReceipt.paymentMethod, lastAbonoReceipt.newBalance)}
+                style={{ padding: '6px 14px', borderRadius: '6px', border: 'none', background: '#10b981', color: 'white', fontWeight: '700', cursor: 'pointer', fontSize: '0.82rem', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                📲 Enviar Recibo por WhatsApp
+              </button>
+              <button onClick={() => setLastAbonoReceipt(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#059669', fontSize: '1.2rem', padding: '0 4px' }}>×</button>
+            </div>
+          </div>
+        )}
 
         {/* Saldo */}
         <div style={{ marginTop: '16px', padding: '18px 20px', borderRadius: '12px', background: balance > 0 ? 'linear-gradient(135deg,#fef2f2,#fff5f5)' : 'linear-gradient(135deg,#f0fdf4,#f7fef7)', border: `1px solid ${balance > 0 ? '#fecaca' : '#bbf7d0'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
@@ -259,7 +320,7 @@ export default function CustomerDetail() {
                 style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid #fca5a5', background: 'white', color: '#dc2626', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
                 💳 Fiado Manual
               </button>
-              <button onClick={() => { setModal('ABONO'); setAmount(''); setDescription(''); }} disabled={balance <= 0}
+              <button onClick={() => { setModal('ABONO'); setAmount(''); setDescription(''); setPaymentMethod('EFECTIVO'); }} disabled={balance <= 0}
                 style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: 'none', background: balance <= 0 ? '#e2e8f0' : '#16a34a', color: balance <= 0 ? '#94a3b8' : 'white', fontWeight: '700', cursor: balance <= 0 ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
                 💵 Registrar Abono
               </button>
@@ -285,10 +346,30 @@ export default function CustomerDetail() {
                   {tx.type === 'FIADO' ? '🛒' : '💵'}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: '600', fontSize: '0.88rem', color: '#1e293b', lineHeight: '1.4' }}>
-                    {tx.description || (tx.type === 'FIADO' ? 'Fiado registrado' : 'Abono recibido')}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: '600', fontSize: '0.88rem', color: '#1e293b', lineHeight: '1.4' }}>
+                      {tx.description || (tx.type === 'FIADO' ? 'Fiado registrado' : 'Abono recibido')}
+                    </span>
+                    {tx.type === 'ABONO' && (
+                      <span style={{
+                        padding: '2px 8px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: '700',
+                        background: tx.paymentMethod === 'TRANSFERENCIA' ? '#e0f2fe' : '#dcfce7',
+                        color: tx.paymentMethod === 'TRANSFERENCIA' ? '#0284c7' : '#16a34a',
+                        border: `1px solid ${tx.paymentMethod === 'TRANSFERENCIA' ? '#bae6fd' : '#bbf7d0'}`
+                      }}>
+                        {tx.paymentMethod === 'TRANSFERENCIA' ? '📱 Nequi / Transf.' : '💵 Efectivo'}
+                      </span>
+                    )}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '3px' }}>{fmtDate(tx.date)}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span>{fmtDate(tx.date)}</span>
+                    {tx.type === 'ABONO' && (
+                      <button onClick={() => sendWhatsAppReceipt(tx.amount, tx.paymentMethod || 'EFECTIVO', customer.balance)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#10b981', fontSize: '0.75rem', fontWeight: '600', padding: 0, textDecoration: 'underline' }}>
+                        📲 WhatsApp
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <div>
@@ -587,10 +668,49 @@ export default function CustomerDetail() {
                 <input ref={amountRef} required type="number" step="1" min="1" className="input" value={amount} onChange={e => setAmount(e.target.value)} onKeyDown={e => e.key === 'Escape' && setModal(null)} placeholder="Ej: 15000"
                   style={{ fontSize: '1.6rem', fontWeight: '800', textAlign: 'center', borderRadius: '10px', border: `2px solid ${modal === 'FIADO' ? '#fca5a5' : '#86efac'}`, padding: '12px' }} />
               </div>
+
+              {/* Selector de Método de Pago para Abonos */}
+              {modal === 'ABONO' && (
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', color: '#374151', marginBottom: '8px', textTransform: 'uppercase' }}>
+                    ¿Cómo recibe el dinero? *
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <button type="button" onClick={() => setPaymentMethod('EFECTIVO')}
+                      style={{
+                        padding: '12px 8px', borderRadius: '10px', cursor: 'pointer', fontFamily: 'inherit',
+                        border: paymentMethod === 'EFECTIVO' ? '2px solid #16a34a' : '1px solid #e2e8f0',
+                        background: paymentMethod === 'EFECTIVO' ? '#f0fdf4' : 'white',
+                        color: paymentMethod === 'EFECTIVO' ? '#16a34a' : '#64748b',
+                        fontWeight: '700', fontSize: '0.85rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+                        transition: 'all 0.15s'
+                      }}>
+                      <span style={{ fontSize: '1.2rem' }}>💵</span>
+                      <span>Efectivo</span>
+                      <span style={{ fontSize: '0.68rem', fontWeight: '500', color: paymentMethod === 'EFECTIVO' ? '#15803d' : '#94a3b8' }}>(Entra a Caja)</span>
+                    </button>
+
+                    <button type="button" onClick={() => setPaymentMethod('TRANSFERENCIA')}
+                      style={{
+                        padding: '12px 8px', borderRadius: '10px', cursor: 'pointer', fontFamily: 'inherit',
+                        border: paymentMethod === 'TRANSFERENCIA' ? '2px solid #0284c7' : '1px solid #e2e8f0',
+                        background: paymentMethod === 'TRANSFERENCIA' ? '#f0f9ff' : 'white',
+                        color: paymentMethod === 'TRANSFERENCIA' ? '#0284c7' : '#64748b',
+                        fontWeight: '700', fontSize: '0.85rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+                        transition: 'all 0.15s'
+                      }}>
+                      <span style={{ fontSize: '1.2rem' }}>📱</span>
+                      <span>Transferencia</span>
+                      <span style={{ fontSize: '0.68rem', fontWeight: '500', color: paymentMethod === 'TRANSFERENCIA' ? '#0369a1' : '#94a3b8' }}>(Nequi / Bancos)</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '700', color: '#374151', marginBottom: '6px', textTransform: 'uppercase' }}>Descripción (opcional)</label>
                 <input className="input" value={description} onChange={e => setDescription(e.target.value)}
-                  placeholder={modal === 'FIADO' ? 'Ej: 1kg carne, 2 leches...' : 'Ej: Pagó con billete de 50mil'}
+                  placeholder={modal === 'FIADO' ? 'Ej: 1kg carne, 2 leches...' : (paymentMethod === 'TRANSFERENCIA' ? 'Ej: Nequi comprobante #4928' : 'Ej: Pago en billete')}
                   style={{ borderRadius: '8px', border: '1.5px solid #e2e8f0' }} />
               </div>
               {modal === 'ABONO' && amount && parseFloat(amount) > 0 && balance > 0 && (

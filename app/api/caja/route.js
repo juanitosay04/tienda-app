@@ -1,12 +1,19 @@
-import { PrismaClient } from '@prisma/client'
-import { sendTelegramMessage } from '../../../lib/telegram'
-
-const prisma = new PrismaClient()
+import prisma from '../../../lib/prisma';
+import { sendTelegramMessage } from '../../../lib/telegram';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   try {
+    const { searchParams } = new URL(request.url);
+    if (searchParams.get('history') === 'true') {
+      const history = await prisma.cashRegisterClose.findMany({
+        orderBy: { date: 'desc' },
+        take: 50
+      });
+      return Response.json(history);
+    }
+
     const lastClose = await prisma.cashRegisterClose.findFirst({
       orderBy: { date: 'desc' }
     });
@@ -14,13 +21,18 @@ export async function GET(request) {
     // Si no hay cierre previo, tomar desde hoy a las 00:00
     const startDate = lastClose ? lastClose.date : new Date(new Date().setHours(0,0,0,0));
     
-    const transactions = await prisma.transaction.findMany({
-      where: { date: { gt: startDate }, type: 'VENTA' }
-    });
-
-    const expenses = await prisma.expense.findMany({
-      where: { date: { gt: startDate } }
-    });
+    const [transactions, expenses, abonos] = await Promise.all([
+      prisma.transaction.findMany({
+        where: { date: { gt: startDate }, type: 'VENTA' }
+      }),
+      prisma.expense.findMany({
+        where: { date: { gt: startDate } }
+      }),
+      prisma.fiadoTransaction.findMany({
+        where: { date: { gt: startDate }, type: 'ABONO' },
+        include: { customer: true }
+      })
+    ]);
 
     // Leer saldo base de caja desde configuración
     const cajaBaseConfig = await prisma.storeConfig.findUnique({ where: { key: 'caja_base' } });
@@ -29,29 +41,52 @@ export async function GET(request) {
     const salesEfectivo = transactions.filter(t => t.paymentMethod === 'EFECTIVO').reduce((sum, t) => sum + t.total, 0);
     const salesTransfer = transactions.filter(t => t.paymentMethod === 'TRANSFERENCIA').reduce((sum, t) => sum + t.total, 0);
     
+    const abonosEfectivo = abonos.filter(a => a.paymentMethod === 'EFECTIVO' || !a.paymentMethod).reduce((sum, a) => sum + a.amount, 0);
+    const abonosTransfer = abonos.filter(a => a.paymentMethod === 'TRANSFERENCIA').reduce((sum, a) => sum + a.amount, 0);
+
+    const totalIngresosEfectivo = salesEfectivo + abonosEfectivo;
+    const totalTransfers = salesTransfer + abonosTransfer;
+
     const expensesEfectivo = expenses.filter(e => e.paymentMethod === 'EFECTIVO').reduce((sum, e) => sum + e.amount, 0);
     const expensesTransfer = expenses.filter(e => e.paymentMethod === 'TRANSFERENCIA').reduce((sum, e) => sum + e.amount, 0);
     
     return Response.json({
       cajaBase,
-      expectedCash: cajaBase + salesEfectivo - expensesEfectivo,
       salesEfectivo,
-      totalTransfers: salesTransfer,
+      salesTransfer,
+      abonosEfectivo,
+      abonosTransfer,
+      totalAbonos: abonosEfectivo + abonosTransfer,
+      abonosList: abonos,
+      totalIngresosEfectivo,
+      totalTransfers,
       salesCount: transactions.length,
+      abonosCount: abonos.length,
       totalExpensesEfectivo: expensesEfectivo,
       totalExpensesTransfer: expensesTransfer,
+      expectedCash: cajaBase + totalIngresosEfectivo - expensesEfectivo,
       since: startDate
     });
   } catch (error) {
+    console.error('Error in GET /api/caja:', error);
     return Response.json({ error: 'Error fetching stats' }, { status: 500 });
   }
 }
 
 export async function POST(request) {
-  const body = await request.json();
-  const { expectedCash, actualCash, totalTransfers, salesCount } = body;
-  
   try {
+    const body = await request.json();
+    const {
+      expectedCash,
+      actualCash,
+      totalTransfers,
+      salesCount,
+      salesEfectivo = 0,
+      abonosEfectivo = 0,
+      abonosTransfer = 0,
+      totalExpensesEfectivo = 0
+    } = body;
+    
     const record = await prisma.cashRegisterClose.create({
       data: {
         expectedCash: Number(expectedCash),
@@ -62,20 +97,40 @@ export async function POST(request) {
       }
     });
     
-    // Enviar alerta a Telegram
-    const mensaje = `📦 <b>Cierre de Caja Registrado</b>\n\n` +
-      `Ventas en el turno: ${salesCount}\n` +
-      `Ingresos Efectivo: $${(Number(expectedCash) + (body.totalExpensesEfectivo||0)).toLocaleString('es-CO')}\n` +
-      `Salidas/Gastos Efectivo: -$${(body.totalExpensesEfectivo||0).toLocaleString('es-CO')}\n\n` +
-      `Efectivo Esperado Neto: $${Number(expectedCash).toLocaleString('es-CO')}\n` +
-      `Físico Reportado: $${Number(actualCash).toLocaleString('es-CO')}\n` +
-      `<b>Diferencia: $${(Number(actualCash) - Number(expectedCash)).toLocaleString('es-CO')}</b>\n\n` +
-      `Total Transferencias: $${Number(totalTransfers).toLocaleString('es-CO')}`;
+    // Formatear mensaje detallado para Telegram
+    const diff = Number(actualCash) - Number(expectedCash);
+    const diffText = diff === 0 
+      ? '✅ Cuadre Perfecto ($0)' 
+      : diff < 0 
+        ? `🔴 Faltante: -$${Math.abs(diff).toLocaleString('es-CO')}` 
+        : `🟢 Sobrante: +$${diff.toLocaleString('es-CO')}`;
+
+    let mensaje = `🔒 <b>CIERRE DE CAJA REGISTRADO</b>\n` +
+      `📅 Fecha: ${new Date().toLocaleString('es-CO')}\n\n` +
+      `🛒 <b>Ventas Directas Efectivo:</b> $${Number(salesEfectivo).toLocaleString('es-CO')} (${salesCount} ventas)\n`;
+
+    if (Number(abonosEfectivo) > 0) {
+      mensaje += `📒 <b>Abonos Fiados Efectivo:</b> +$${Number(abonosEfectivo).toLocaleString('es-CO')}\n`;
+    }
+
+    if (Number(totalExpensesEfectivo) > 0) {
+      mensaje += `💸 <b>Gastos en Efectivo:</b> -$${Number(totalExpensesEfectivo).toLocaleString('es-CO')}\n`;
+    }
+
+    mensaje += `\n💰 <b>Efectivo Esperado en Caja:</b> $${Number(expectedCash).toLocaleString('es-CO')}\n` +
+      `💵 <b>Físico Contado:</b> $${Number(actualCash).toLocaleString('es-CO')}\n` +
+      `📊 <b>Diferencia:</b> <b>${diffText}</b>\n\n` +
+      `📱 <b>Total Transferencias (Nequi/Banco):</b> $${Number(totalTransfers).toLocaleString('es-CO')}`;
+
+    if (Number(abonosTransfer) > 0) {
+      mensaje += ` (incluye $${Number(abonosTransfer).toLocaleString('es-CO')} en abonos)`;
+    }
       
     await sendTelegramMessage(mensaje);
     
     return Response.json({ success: true, record });
   } catch (error) {
+    console.error('Error in POST /api/caja:', error);
     return Response.json({ error: 'Error closing register' }, { status: 500 });
   }
 }

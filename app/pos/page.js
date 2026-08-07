@@ -667,18 +667,28 @@ export default function POS() {
                 </div>
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '7px', color: '#78350f', fontSize: '0.88rem' }}>
-                <span>💵 Ventas efectivo acumuladas:</span><strong style={{ color: '#16a34a' }}>+${(cajaStats.salesEfectivo || 0).toLocaleString('es-CO')}</strong>
+                <span>💵 Ventas efectivo POS:</span><strong style={{ color: '#16a34a' }}>+${(cajaStats.salesEfectivo || 0).toLocaleString('es-CO')}</strong>
               </div>
+              {(cajaStats.abonosEfectivo > 0) && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '7px', color: '#78350f', fontSize: '0.88rem' }}>
+                  <span>📒 Abonos fiados (efectivo):</span><strong style={{ color: '#16a34a' }}>+${cajaStats.abonosEfectivo.toLocaleString('es-CO')}</strong>
+                </div>
+              )}
               {cajaStats.totalExpensesEfectivo > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '7px', color: '#78350f', fontSize: '0.88rem' }}>
-                  <span>💸 Gastos efectivo:</span><strong style={{ color: '#dc2626' }}>-${cajaStats.totalExpensesEfectivo.toLocaleString('es-CO')}</strong>
+                  <span>💸 Gastos en efectivo:</span><strong style={{ color: '#dc2626' }}>-${cajaStats.totalExpensesEfectivo.toLocaleString('es-CO')}</strong>
                 </div>
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '7px', color: '#78350f', fontSize: '0.88rem' }}>
-                <span>📱 Nequi/Banco:</span><strong>${cajaStats.totalTransfers.toLocaleString('es-CO')}</strong>
+                <span>📱 Nequi/Transferencias:</span><strong>${(cajaStats.totalTransfers || 0).toLocaleString('es-CO')}</strong>
               </div>
+              {cajaStats.abonosTransfer > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '7px', color: '#64748b', fontSize: '0.78rem', paddingLeft: '10px' }}>
+                  <span>↳ Incluye abonos transfer:</span><span>${cajaStats.abonosTransfer.toLocaleString('es-CO')}</span>
+                </div>
+              )}
               <div style={{ borderTop: '2px dashed #fcd34d', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: '700', color: '#78350f' }}>Efectivo esperado ahora:</span>
+                <span style={{ fontWeight: '700', color: '#78350f' }}>Efectivo esperado en caja:</span>
                 <span style={{ fontSize: '1.5rem', color: '#d97706', fontWeight: '900' }}>${cajaStats.expectedCash.toLocaleString('es-CO')}</span>
               </div>
             </div>
@@ -732,13 +742,18 @@ export default function POS() {
                   </div>
                   <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '14px 16px', marginBottom: '20px', border: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', color: '#475569', marginBottom: '6px' }}>
-                      <span># Ventas del día:</span><strong>{cajaStats.salesCount}</strong>
+                      <span># Movimientos atendidos:</span><strong>{cajaStats.salesCount} ventas {cajaStats.abonosCount > 0 && `+ ${cajaStats.abonosCount} abonos`}</strong>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', color: '#475569', marginBottom: '6px' }}>
                       <span>Ventas efectivo:</span><strong style={{ color: '#16a34a' }}>${(cajaStats.salesEfectivo || 0).toLocaleString('es-CO')}</strong>
                     </div>
+                    {cajaStats.abonosEfectivo > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', color: '#475569', marginBottom: '6px' }}>
+                        <span>Abonos fiados (efectivo):</span><strong style={{ color: '#16a34a' }}>+${cajaStats.abonosEfectivo.toLocaleString('es-CO')}</strong>
+                      </div>
+                    )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', color: '#475569' }}>
-                      <span>Nequi/Banco:</span><strong>${cajaStats.totalTransfers.toLocaleString('es-CO')}</strong>
+                      <span>Nequi/Banco:</span><strong>${(cajaStats.totalTransfers || 0).toLocaleString('es-CO')}</strong>
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '10px' }}>
@@ -758,7 +773,7 @@ export default function POS() {
               <>
                 <div style={{ padding: '20px 28px 16px', background: 'linear-gradient(135deg,#fef2f2,#fff5f5)', borderBottom: '1px solid #fecaca' }}>
                   <h2 style={{ margin: 0, color: '#991b1b', fontSize: '1.05rem' }}>🔒 Cierre de Día — Conteo Final</h2>
-                  <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: '#94a3b8' }}>Este registro queda guardado en el historial</p>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: '#94a3b8' }}>Este registro queda guardado en el historial y se envía reporte</p>
                 </div>
                 <div style={{ padding: '22px 28px' }}>
                   <div style={{ padding: '14px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
@@ -770,13 +785,18 @@ export default function POS() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', color: '#475569', fontSize: '0.85rem' }}>
                       <span>💵 Ventas efectivo:</span><strong style={{ color: '#16a34a' }}>+${(cajaStats.salesEfectivo || 0).toLocaleString('es-CO')}</strong>
                     </div>
+                    {cajaStats.abonosEfectivo > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', color: '#475569', fontSize: '0.85rem' }}>
+                        <span>📒 Abonos fiados (efectivo):</span><strong style={{ color: '#16a34a' }}>+${cajaStats.abonosEfectivo.toLocaleString('es-CO')}</strong>
+                      </div>
+                    )}
                     {cajaStats.totalExpensesEfectivo > 0 && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', color: '#475569', fontSize: '0.85rem' }}>
-                        <span>💸 Gastos:</span><strong style={{ color: '#dc2626' }}>-${cajaStats.totalExpensesEfectivo.toLocaleString('es-CO')}</strong>
+                        <span>💸 Gastos efectivo:</span><strong style={{ color: '#dc2626' }}>-${cajaStats.totalExpensesEfectivo.toLocaleString('es-CO')}</strong>
                       </div>
                     )}
                     <div style={{ borderTop: '2px dashed #e2e8f0', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: '700', color: '#1e293b' }}>Efectivo esperado:</span>
+                      <span style={{ fontWeight: '700', color: '#1e293b' }}>Efectivo esperado en caja:</span>
                       <span style={{ fontSize: '1.4rem', color: '#dc2626', fontWeight: '900' }}>${cajaStats.expectedCash.toLocaleString('es-CO')}</span>
                     </div>
                   </div>

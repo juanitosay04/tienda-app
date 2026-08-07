@@ -57,13 +57,14 @@ model Customer {
 }
 
 model FiadoTransaction {
-  id          Int      @id @default(autoincrement())
-  customerId  Int
-  customer    Customer @relation(fields: [customerId], references: [id])
-  type        String   // "FIADO" | "ABONO"
-  amount      Float
-  description String?
-  date        DateTime @default(now())
+  id            Int      @id @default(autoincrement())
+  customerId    Int
+  customer      Customer @relation(fields: [customerId], references: [id])
+  type          String   // "FIADO" | "ABONO"
+  paymentMethod String?  @default("EFECTIVO") // "EFECTIVO" | "TRANSFERENCIA"
+  amount        Float
+  description   String?
+  date          DateTime @default(now())
 }
 
 model StoreConfig {
