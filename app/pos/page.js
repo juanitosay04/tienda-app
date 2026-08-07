@@ -145,17 +145,51 @@ export default function POS() {
         setCart(cart.map(i => i.product.id === productId ? { ...i, quantity: parseFloat((i.quantity - 0.5).toFixed(3)) } : i));
       }
     } else {
-      if (item.quantity > 1) {
-        setCart(cart.map(i => i.product.id === productId ? { ...i, quantity: i.quantity - 1 } : i));
+      const currentQty = Number(item.quantity) || 1;
+      if (currentQty > 1) {
+        setCart(cart.map(i => i.product.id === productId ? { ...i, quantity: currentQty - 1 } : i));
       } else {
         setCart(cart.filter(i => i.product.id !== productId));
       }
     }
   };
 
+  // Edición directa de cantidad por teclado
+  const handleQuantityChange = (productId, val) => {
+    const item = cart.find(i => i.product.id === productId);
+    if (!item) return;
+
+    if (val === '') {
+      setCart(cart.map(i => i.product.id === productId ? { ...i, quantity: '' } : i));
+      return;
+    }
+
+    const num = parseFloat(val);
+    if (isNaN(num)) return;
+
+    if (num > item.product.stock) {
+      const unit = isWeightProduct(item.product) ? getUnit(item.product.name) : 'und';
+      showStockAlert(`⚠ Stock máximo disponible: ${item.product.stock} ${unit}`);
+      setCart(cart.map(i => i.product.id === productId ? { ...i, quantity: item.product.stock } : i));
+      return;
+    }
+
+    setCart(cart.map(i => i.product.id === productId ? { ...i, quantity: num } : i));
+  };
+
+  const handleQuantityBlur = (productId, val) => {
+    const item = cart.find(i => i.product.id === productId);
+    if (!item) return;
+
+    const num = parseFloat(val);
+    if (!num || num <= 0 || isNaN(num)) {
+      setCart(cart.map(i => i.product.id === productId ? { ...i, quantity: 1 } : i));
+    }
+  };
+
   const deleteFromCart = (productId) => setCart(cart.filter(i => i.product.id !== productId));
 
-  const total = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+  const total = cart.reduce((sum, item) => sum + (item.product.price * (Number(item.quantity) || 0)), 0);
 
   // ── Cobrar ──
   const handleCobrar = async (method) => {
@@ -172,11 +206,16 @@ export default function POS() {
     if (cart.length === 0 || processing) return;
     setProcessing(true);
 
-    const items = cart.map(i => ({ 
-        productId: i.product.id, 
-        quantity: i.quantity,
-        total: Math.round(i.product.price * i.quantity)
-    }));
+    const items = cart
+      .filter(i => (Number(i.quantity) || 0) > 0)
+      .map(i => {
+        const qty = Number(i.quantity) || 1;
+        return {
+          productId: i.product.id, 
+          quantity: qty,
+          total: Math.round(i.product.price * qty)
+        };
+      });
 
     const res = await fetch('/api/transactions', {
       method: 'POST',
@@ -473,34 +512,51 @@ export default function POS() {
             cart.map(item => {
               const fruver = isWeightProduct(item.product);
               const unit = getUnit(item.product.name);
-              const subtotal = Math.round(item.product.price * item.quantity);
+              const qtyNum = Number(item.quantity) || 0;
+              const subtotal = Math.round(item.product.price * qtyNum);
               return (
                 <div key={item.product.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', padding: '10px', backgroundColor: fruver ? '#f0fdf4' : '#f8fafc', borderRadius: '8px', border: `1px solid ${fruver ? '#bbf7d0' : '#e2e8f0'}` }}>
                   <div style={{ flex: 1, paddingRight: '8px', minWidth: 0 }}>
                     <div style={{ fontWeight: '600', color: '#1e293b', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.product.name}</div>
                     <div style={{ color: '#64748b', fontSize: '0.78rem', marginTop: '2px' }}>
-                      {fmtQty(item.quantity)} {fruver ? unit : 'x'} × ${item.product.price.toLocaleString('es-CO')}
+                      {fmtQty(qtyNum)} {fruver ? unit : 'x'} × ${item.product.price.toLocaleString('es-CO')}
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                     {fruver ? (
                       // Fruver: botón para volver a poner peso + eliminar
                       <>
-                        <button onClick={() => setWeightModal({ open: true, product: item.product, amount: '' })}
+                        <button onClick={() => setWeightModal({ open: true, product: item.product, amount: item.quantity.toString() })}
                           style={{ padding: '4px 8px', background: '#dcfce7', border: '1px solid #bbf7d0', borderRadius: '5px', cursor: 'pointer', fontSize: '0.75rem', color: '#16a34a', fontWeight: '600' }}>
                           ⚖ Editar
                         </button>
-                        <button onClick={() => deleteFromCart(item.product.id)}
+                        <button onClick={() => deleteFromCart(item.product.id)} title="Eliminar del carrito"
                           style={{ padding: '4px 8px', background: '#fee2e2', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '0.8rem', color: '#ef4444' }}>
                           ×
                         </button>
                       </>
                     ) : (
-                      // Normal: botones - y +
-                      <div style={{ display: 'flex', alignItems: 'center', background: 'white', border: '1px solid #cbd5e1', borderRadius: '6px', overflow: 'hidden' }}>
-                        <button onClick={() => removeFromCart(item.product.id)} style={{ padding: '5px 10px', background: 'transparent', border: 'none', borderRight: '1px solid #cbd5e1', cursor: 'pointer', fontWeight: 'bold', color: '#475569' }}>-</button>
-                        <span style={{ padding: '0 10px', fontWeight: 'bold', minWidth: '30px', textAlign: 'center', fontSize: '0.9rem' }}>{item.quantity}</span>
-                        <button onClick={() => addToCart(item.product, 1)} style={{ padding: '5px 10px', background: 'transparent', border: 'none', borderLeft: '1px solid #cbd5e1', cursor: 'pointer', fontWeight: 'bold', color: '#475569' }}>+</button>
+                      // Normal: botones - / input de cantidad directa / + y botón ×
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', background: 'white', border: '1px solid #cbd5e1', borderRadius: '6px', overflow: 'hidden' }}>
+                          <button onClick={() => removeFromCart(item.product.id)} style={{ padding: '4px 8px', background: 'transparent', border: 'none', borderRight: '1px solid #cbd5e1', cursor: 'pointer', fontWeight: 'bold', color: '#475569', fontSize: '1rem', lineHeight: 1 }}>-</button>
+                          <input
+                            type="number"
+                            min="1"
+                            max={item.product.stock}
+                            step="1"
+                            value={item.quantity}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => handleQuantityChange(item.product.id, e.target.value)}
+                            onBlur={(e) => handleQuantityBlur(item.product.id, e.target.value)}
+                            style={{ width: '44px', textAlign: 'center', border: 'none', fontWeight: 'bold', fontSize: '0.95rem', outline: 'none', background: 'transparent', padding: '4px 0', MozAppearance: 'textfield' }}
+                          />
+                          <button onClick={() => addToCart(item.product, 1)} style={{ padding: '4px 8px', background: 'transparent', border: 'none', borderLeft: '1px solid #cbd5e1', cursor: 'pointer', fontWeight: 'bold', color: '#475569', fontSize: '1rem', lineHeight: 1 }}>+</button>
+                        </div>
+                        <button onClick={() => deleteFromCart(item.product.id)} title="Eliminar del carrito"
+                          style={{ padding: '4px 7px', background: '#fee2e2', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '0.85rem', color: '#ef4444', fontWeight: 'bold' }}>
+                          ×
+                        </button>
                       </div>
                     )}
                     <span style={{ fontWeight: 'bold', minWidth: '65px', textAlign: 'right', color: '#0f172a', fontSize: '0.88rem' }}>
