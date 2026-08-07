@@ -69,8 +69,8 @@ export default function FiadoPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <button onClick={() => router.push('/')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: '0.85rem', fontWeight: '500', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '4px' }}>← Inicio</button>
           <div>
-            <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '700', color: '#0f172a' }}>📒 Libro de Fiados</h1>
-            <p style={{ margin: 0, fontSize: '0.78rem', color: '#94a3b8' }}>{customers.length} clientes · {conDeuda} con deuda pendiente</p>
+            <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '800', color: '#0f172a' }}>🏪 Tienda Donde Juancho</h1>
+            <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748b' }}>Libro de Fiados · {customers.length} clientes ({conDeuda} con deuda)</p>
           </div>
         </div>
         <button onClick={() => setShowModal(true)}

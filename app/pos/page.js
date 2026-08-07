@@ -53,6 +53,7 @@ export default function POS() {
 
   // ── Cola de Tickets Pendientes ──
   const [openTickets, setOpenTickets] = useState([]);
+  const [activeTicket, setActiveTicket] = useState(null); // { id, name } si se cargó una cuenta pendiente
   const [pendingNameModal, setPendingNameModal] = useState(false);
   const [pendingName, setPendingName] = useState('');
   const [pendingListModal, setPendingListModal] = useState(false);
@@ -186,6 +187,7 @@ export default function POS() {
     if (res.ok) {
       setCambioModal({ open: false, received: '' });
       setCart([]);
+      setActiveTicket(null);
       const newData = await fetch('/api/products?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json());
       setProducts(newData);
     } else {
@@ -196,27 +198,45 @@ export default function POS() {
 
   // ── Lógica de Tickets Pendientes ──
   const handleSavePending = (e) => {
-    e.preventDefault();
-    if (!pendingName.trim() || cart.length === 0) return;
+    if (e) e.preventDefault();
+    const nameToUse = (pendingName.trim() || activeTicket?.name || '').trim();
+    if (!nameToUse || cart.length === 0) return;
     
     const newTicket = {
-      id: Date.now().toString(),
-      name: pendingName.trim(),
+      id: activeTicket?.id || Date.now().toString(),
+      name: nameToUse,
       cart: [...cart],
       timestamp: new Date().toISOString()
     };
     
-    setOpenTickets([...openTickets, newTicket]);
+    // Si ya existía, se actualiza manteniendo la lista limpia
+    const otherTickets = openTickets.filter(t => t.id !== newTicket.id);
+    setOpenTickets([...otherTickets, newTicket]);
     setCart([]);
+    setActiveTicket(null);
     setPendingName('');
     setPendingNameModal(false);
   };
 
+  // Click en el botón Dejar Pendiente del carrito
+  const handlePendingBtnClick = () => {
+    if (cart.length === 0) return;
+    if (activeTicket) {
+      // Si ya tiene cuenta asignada, se actualiza directamente sin volver a pedir nombre
+      handleSavePending();
+    } else {
+      setPendingName('');
+      setPendingNameModal(true);
+    }
+  };
+
   const handleLoadPending = (ticket) => {
     if (cart.length > 0) {
-      if (!confirm('¿Seguro que quieres cargar este ticket? El carrito actual se borrará (guárdalo primero si lo necesitas).')) return;
+      if (!confirm(`¿Cargar "${ticket.name}"? El carrito actual se reemplazará (guárdalo primero si lo necesitas).`)) return;
     }
     setCart(ticket.cart);
+    setActiveTicket({ id: ticket.id, name: ticket.name });
+    // Retirar de la lista de espera mientras se está atendiendo
     setOpenTickets(openTickets.filter(t => t.id !== ticket.id));
     setPendingListModal(false);
   };
@@ -225,6 +245,7 @@ export default function POS() {
     e.stopPropagation(); // Evitar que cargue el ticket al hacer clic en eliminar
     if (confirm('¿Eliminar este ticket pendiente permanentemente?')) {
       setOpenTickets(openTickets.filter(t => t.id !== ticketId));
+      if (activeTicket?.id === ticketId) setActiveTicket(null);
     }
   };
 
@@ -299,7 +320,7 @@ export default function POS() {
 
         {/* Header */}
         <div style={{ background: 'white', padding: '14px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-          <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a' }}>🛒 Terminal POS</h2>
+          <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a', fontWeight: '800' }}>🏪 Tienda Donde Juancho · POS</h2>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button className="btn" onClick={() => setPendingListModal(true)} style={{ background: openTickets.length > 0 ? '#eff6ff' : '#f8fafc', color: openTickets.length > 0 ? '#2563eb' : '#64748b', border: `1px solid ${openTickets.length > 0 ? '#bfdbfe' : '#cbd5e1'}`, fontSize: '0.85rem', fontWeight: openTickets.length > 0 ? '700' : 'normal' }}>
               📋 Pendientes {openTickets.length > 0 && `(${openTickets.length})`}
@@ -421,9 +442,25 @@ export default function POS() {
 
       {/* ── Panel Derecho: Ticket ── */}
       <div style={{ width: '360px', background: 'white', display: 'flex', flexDirection: 'column', boxShadow: '-3px 0 12px rgba(0,0,0,0.05)', zIndex: 10 }}>
-        <div style={{ padding: '18px 20px', borderBottom: '2px dashed #cbd5e1', backgroundColor: '#f8fafc' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '2px dashed #cbd5e1', backgroundColor: '#f8fafc' }}>
           <h3 style={{ margin: 0, textAlign: 'center', color: '#334155', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '0.95rem' }}>Tirilla de Venta</h3>
         </div>
+
+        {/* Banner de Cuenta Pendiente Activa */}
+        {activeTicket && (
+          <div style={{ padding: '10px 14px', background: 'linear-gradient(135deg, #eff6ff, #dbeafe)', borderBottom: '1px solid #bfdbfe', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontSize: '0.85rem', color: '#1e40af', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>🏷️ Editando: <strong style={{ color: '#1d4ed8', background: 'white', padding: '2px 8px', borderRadius: '5px', border: '1px solid #bfdbfe' }}>{activeTicket.name}</strong></span>
+            </div>
+            <button
+              onClick={() => { setPendingName(activeTicket.name); setPendingNameModal(true); }}
+              title="Cambiar nombre de la cuenta"
+              style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600', textDecoration: 'underline', padding: '2px 4px' }}
+            >
+              Renombrar
+            </button>
+          </div>
+        )}
 
         {/* Items */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
@@ -484,12 +521,18 @@ export default function POS() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={() => setPendingNameModal(true)} disabled={cart.length === 0}
-                style={{ flex: 1, padding: '10px', fontSize: '0.9rem', fontWeight: 'bold', borderRadius: '8px', border: '1px solid #94a3b8', cursor: cart.length === 0 ? 'not-allowed' : 'pointer', background: cart.length === 0 ? '#f8fafc' : 'white', color: cart.length === 0 ? '#94a3b8' : '#334155' }}>
-                🕒 Dejar Pendiente
+              <button onClick={handlePendingBtnClick} disabled={cart.length === 0}
+                style={{
+                  flex: 1, padding: '10px', fontSize: '0.85rem', fontWeight: 'bold', borderRadius: '8px',
+                  border: activeTicket ? '1px solid #3b82f6' : '1px solid #94a3b8',
+                  cursor: cart.length === 0 ? 'not-allowed' : 'pointer',
+                  background: cart.length === 0 ? '#f8fafc' : activeTicket ? '#eff6ff' : 'white',
+                  color: cart.length === 0 ? '#94a3b8' : activeTicket ? '#1d4ed8' : '#334155'
+                }}>
+                {activeTicket ? `💾 Guardar (${activeTicket.name})` : '🕒 Dejar Pendiente'}
               </button>
-              <button onClick={() => setCart([])} disabled={cart.length === 0}
-                style={{ flex: 1, padding: '10px', fontSize: '0.9rem', fontWeight: 'bold', borderRadius: '8px', border: '1px solid #fca5a5', cursor: cart.length === 0 ? 'not-allowed' : 'pointer', background: cart.length === 0 ? '#fef2f2' : 'white', color: cart.length === 0 ? '#fca5a5' : '#ef4444' }}>
+              <button onClick={() => { setCart([]); setActiveTicket(null); }} disabled={cart.length === 0}
+                style={{ flex: 1, padding: '10px', fontSize: '0.85rem', fontWeight: 'bold', borderRadius: '8px', border: '1px solid #fca5a5', cursor: cart.length === 0 ? 'not-allowed' : 'pointer', background: cart.length === 0 ? '#fef2f2' : 'white', color: cart.length === 0 ? '#fca5a5' : '#ef4444' }}>
                 🗑 Limpiar
               </button>
             </div>

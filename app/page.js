@@ -56,8 +56,8 @@ export default function Home() {
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '20px' }}>
       <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-        <h1 style={{ fontSize: '3rem', marginBottom: '10px' }}>Mi Tienda Pro</h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: '1.2rem' }}>Sistema Inteligente de Inventario y Ventas</p>
+        <h1 style={{ fontSize: '3rem', marginBottom: '10px' }}>🏪 Tienda Donde Juancho</h1>
+        <p style={{ color: 'var(--text-muted)', fontSize: '1.2rem' }}>Sistema de Ventas, Fiados e Inventario</p>
       </div>
 
       <div className="grid-cards" style={{ maxWidth: '900px', width: '100%' }}>

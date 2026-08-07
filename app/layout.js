@@ -1,8 +1,8 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Mi Tienda Pro",
-  description: "Sistema de ventas e inventario",
+  title: "Tienda Donde Juancho",
+  description: "Sistema de ventas, fiados e inventario",
 };
 
 export default function RootLayout({ children }) {
