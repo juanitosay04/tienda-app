@@ -57,6 +57,21 @@ export default function CustomerDetail() {
   const [editModal, setEditModal] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', phone: '', notes: '' });
 
+  // Mini-POS state (Fiado con productos)
+  const [posModal, setPosModal] = useState(false);
+  const [cart, setCart] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
+  const [posSearch, setPosSearch] = useState('');
+  const [posCategory, setPosCategory] = useState('Todas');
+  const [weightModal, setWeightModal] = useState({ open: false, product: null, amount: '' });
+  const weightRef = useRef(null);
+  const [stockWarning, setStockWarning] = useState(null);
+
+  const showStockAlert = (msg) => {
+    setStockWarning(msg);
+    setTimeout(() => setStockWarning(null), 3000);
+  };
+
   useEffect(() => { fetchCustomer(); }, [id]);
   useEffect(() => { if (modal && amountRef.current) setTimeout(() => amountRef.current?.focus(), 80); }, [modal]);
   useEffect(() => { if (weightModal.open && weightRef.current) setTimeout(() => weightRef.current?.focus(), 80); }, [weightModal.open]);
