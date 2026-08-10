@@ -97,6 +97,28 @@ export async function POST(request) {
       }
     });
     
+    // ----- NUEVO: SUMAR AL CAPITAL DE LA EMPRESA -----
+    const cajaBaseConfig = await prisma.storeConfig.findUnique({ where: { key: 'caja_base' } });
+    const cajaBase = cajaBaseConfig ? Number(cajaBaseConfig.value) : 70000;
+    
+    // Calculamos el excedente de caja física (dejando la base intacta)
+    const excedenteEfectivo = Math.max(0, Number(actualCash) - cajaBase);
+    
+    // El monto a sumar al capital es el excedente de efectivo + todas las transferencias
+    const montoAlCapital = excedenteEfectivo + Number(totalTransfers);
+
+    if (montoAlCapital > 0) {
+      const capitalConfig = await prisma.storeConfig.findUnique({ where: { key: 'capital_inicial' } });
+      const capitalActual = capitalConfig ? Number(capitalConfig.value) : 0;
+      
+      await prisma.storeConfig.upsert({
+        where: { key: 'capital_inicial' },
+        update: { value: String(capitalActual + montoAlCapital) },
+        create: { key: 'capital_inicial', value: String(capitalActual + montoAlCapital), label: 'Capital Total de la Tienda' }
+      });
+    }
+    // -------------------------------------------------
+    
     // Formatear mensaje detallado para Telegram
     const diff = Number(actualCash) - Number(expectedCash);
     const diffText = diff === 0 
@@ -124,6 +146,10 @@ export async function POST(request) {
 
     if (Number(abonosTransfer) > 0) {
       mensaje += ` (incluye $${Number(abonosTransfer).toLocaleString('es-CO')} en abonos)`;
+    }
+    
+    if (montoAlCapital > 0) {
+      mensaje += `\n\n🏦 <b>Capital de la Empresa:</b> Se sumaron +$${montoAlCapital.toLocaleString('es-CO')} al capital (dejando $${cajaBase.toLocaleString('es-CO')} de base en caja).`;
     }
       
     await sendTelegramMessage(mensaje);
