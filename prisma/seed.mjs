@@ -115,7 +115,25 @@ const initialProducts = [
   { category: 'Aseo Personal', name: 'Nutribela', price: 1300 },
   { category: 'Aseo Personal', name: 'Tratamiento', price: 1800 },
   { category: 'Aseo Personal', name: 'P.H. Familiar', price: 1800 },
-  { category: 'Aseo Personal', name: 'P.H. Megarrollo', price: 2600 }
+  { category: 'Aseo Personal', name: 'P.H. Megarrollo', price: 2600 },
+  { category: 'Gaseosas e Hidratantes', name: 'Amper Mango Party Lata 310ml', price: 1700 },
+  { category: 'Despensa y Abarrotes', name: 'Azúcar Riopaila Morena 500g', price: 2100 },
+  { category: 'Despensa y Abarrotes', name: 'Espaguetti Nieve 90g', price: 600 },
+  { category: 'Arepas y Embutidos', name: 'Chorizo Ideal Rica 150g', price: 5000 },
+  { category: 'Gaseosas e Hidratantes', name: 'Pepsi 2.5 Litros PET', price: 6000 },
+  { category: 'Gaseosas e Hidratantes', name: 'Jugo Hit Mango 1 Litro PET', price: 3400 },
+  { category: 'Gaseosas e Hidratantes', name: 'Jugo Hit Mora 1 Litro PET', price: 3400 },
+  { category: 'Gaseosas e Hidratantes', name: 'Naranja Postobón 1.25 Litros PET', price: 3000 },
+  { category: 'Gaseosas e Hidratantes', name: 'Pepsi 1.25 Litros PET', price: 3000 },
+  { category: 'Gaseosas e Hidratantes', name: 'Pepsi 1.75 Litros PET', price: 4500 },
+  { category: 'Dulces y Paquetes', name: 'Supercoco Chupeta', price: 550 },
+  { category: 'Dulces y Paquetes', name: 'Trululu Gusanos Ácidos (Unidad)', price: 200 },
+  { category: 'Aseo del Hogar', name: 'Katori Espiral (Sobre)', price: 2100 },
+  { category: 'Aseo Personal', name: 'Jabón Johnson Adulto 110g', price: 4600 },
+  { category: 'Aseo del Hogar', name: 'Detergente Líquido Dersa 4000ml', price: 12500 },
+  { category: 'Despensa y Abarrotes', name: 'Sardina Brisas de Mar (Lata)', price: 3000 },
+  { category: 'Dulces y Paquetes', name: 'Galleta Oreo Chocolate', price: 1500 },
+  { category: 'Dulces y Paquetes', name: 'Galleta Oreo Cookies and Cream', price: 1500 }
 ]
 
 async function main() {
