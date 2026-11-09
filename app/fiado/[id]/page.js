@@ -6,6 +6,8 @@ const fmtDate = (d) => new Date(d).toLocaleDateString('es-CO', { day: '2-digit',
 const getUnit = (name) => { const m = name.match(/\(([^)]+)\)/); return m ? m[1] : 'Und'; };
 const isFruver = (p) => p.category === 'Fruver';
 const fmtQty = (q) => parseFloat(q.toFixed(3)).toString();
+const normalizeText = (str = '') =>
+  String(str).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
 export default function CustomerDetail() {
   const router = useRouter();
@@ -251,8 +253,8 @@ export default function CustomerDetail() {
   // Filtros mini-POS
   const categories = allProducts.length ? ['Todas', ...new Set(allProducts.map(p => p.category))] : [];
   const filteredProducts = allProducts.filter(p => {
-    const searchWords = posSearch.toLowerCase().trim().split(/\s+/);
-    const productName = p.name.toLowerCase();
+    const searchWords = normalizeText(posSearch).trim().split(/\s+/);
+    const productName = normalizeText(p.name);
     const matchSearch = searchWords.every(word => productName.includes(word));
     const matchCat = posCategory === 'Todas' || p.category === posCategory;
     return matchSearch && matchCat && p.stock > 0;

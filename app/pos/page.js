@@ -14,6 +14,10 @@ const isWeightProduct = (product) => product.category === 'Fruver';
 // Mostrar cantidad limpia: 1.00 → "1", 0.50 → "0.5", 1.25 → "1.25"
 const fmtQty = (qty) => parseFloat(qty.toFixed(3)).toString();
 
+// Normalizar texto sin tildes/diacríticos para búsqueda flexible
+const normalizeText = (str = '') =>
+  String(str).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
 export default function POS() {
   const router = useRouter();
   const [products, setProducts] = useState([]);
@@ -344,8 +348,8 @@ export default function POS() {
   // ── Filtros ──
   const categories = ['Todas', ...new Set(products.map(p => p.category))];
   const filteredProducts = products.filter(p => {
-    const searchWords = search.toLowerCase().trim().split(/\s+/);
-    const productName = p.name.toLowerCase();
+    const searchWords = normalizeText(search).trim().split(/\s+/);
+    const productName = normalizeText(p.name);
     const matchSearch = searchWords.every(word => productName.includes(word));
     const matchCat = selectedCategory === 'Todas' || p.category === selectedCategory;
     return matchSearch && matchCat;

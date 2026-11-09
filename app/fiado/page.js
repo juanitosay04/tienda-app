@@ -2,6 +2,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 
+const normalizeText = (str = '') =>
+  String(str).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
 export default function FiadoPage() {
   const router = useRouter();
   const [customers, setCustomers] = useState([]);
@@ -23,9 +26,10 @@ export default function FiadoPage() {
   };
 
   const filtered = useMemo(() => {
+    const normSearch = normalizeText(search).trim();
     return customers
       .filter(c => {
-        const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) ||
+        const matchSearch = normalizeText(c.name).includes(normSearch) ||
           (c.phone && c.phone.includes(search));
         const matchFilter = filter === 'todos' || (filter === 'con-deuda' ? c.balance > 0 : c.balance <= 0);
         return matchSearch && matchFilter;

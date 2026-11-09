@@ -14,6 +14,10 @@ const CATEGORY_COLORS = {
 };
 const getCategoryColor = (cat) => CATEGORY_COLORS[cat] || '#475569';
 
+// Normalizar texto sin tildes/diacríticos para búsqueda flexible
+const normalizeText = (str = '') =>
+  String(str).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
 export default function InventoryManager() {
   const router = useRouter();
   const [products, setProducts] = useState([]);
@@ -45,9 +49,9 @@ export default function InventoryManager() {
   const categories = useMemo(() => ['Todas', ...new Set(products.map(p => p.category))].sort((a, b) => a === 'Todas' ? -1 : a.localeCompare(b)), [products]);
 
   const filtered = useMemo(() => products.filter(p => {
-    const searchWords = search.toLowerCase().trim().split(/\s+/);
-    const productName = p.name.toLowerCase();
-    const productCat = p.category.toLowerCase();
+    const searchWords = normalizeText(search).trim().split(/\s+/);
+    const productName = normalizeText(p.name);
+    const productCat = normalizeText(p.category);
     
     // Filtro por estado de Stock
     if (stockFilter === 'zero' && Number(p.stock) > 0) return false;
